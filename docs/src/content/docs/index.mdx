@@ -1,0 +1,47 @@
+---
+title: Welcome to SonosFlow
+description: Native macOS Sonos Controller powered by homectl MCP
+template: splash
+hero:
+  tagline: A lightweight, native macOS Sonos controller powered by the homectl Model Context Protocol (MCP) server.
+  image:
+    file: ../../assets/app-icon.png
+  actions:
+    - text: Get Started
+      link: /sonosflow/guides/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: Architecture
+      link: /sonosflow/architecture/overview/
+      icon: open-book
+      variant: secondary
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Core Capabilities
+
+<CardGrid stagger>
+  <Card title="Direct MCP Integration" icon="laptop">
+    Communicates directly with the `homectl-sonos` binary over stdio JSON-RPC without intermediate background daemons or cloud requirements.
+  </Card>
+  <Card title="Multi-Group & Stereo Pairs" icon="setting">
+    Discovers all household zone groups, stereo pairs, and multi-room clusters with automatic coordinator IP resolution.
+  </Card>
+  <Card title="Interactive Playback Queue" icon="list-format">
+    Inspects full track queues with artwork thumbnails, duration, artist metadata, and double-click track seeking.
+  </Card>
+  <Card title="Two-Tier Artwork Caching" icon="document">
+    In-memory and SHA-256 persistent disk storage for album covers, enabling offline instant startup and title bar proxy icon dragging.
+  </Card>
+  <Card title="Mode A Floating MiniPlayer" icon="external">
+    Smoothly morphs the main window into an always-on-top compact widget with a single shortcut (`⌘M`).
+  </Card>
+  <Card title="Menu Bar Extra Companion" icon="bars">
+    Persistent menu bar status item for room switching, transport control, volume adjustment, and quick pinned favorites.
+  </Card>
+</CardGrid>
+
+:::note[Legal Disclaimer]
+SonosFlow is an independent open-source tool. It is **not** an official Sonos product and is not affiliated with or endorsed by Sonos, Inc.
+:::
