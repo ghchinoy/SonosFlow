@@ -10,6 +10,7 @@ public final class AppSettings: ObservableObject {
         static let pollingInterval = "sonosflow_polling_interval"
         static let volumeDelta = "sonosflow_volume_delta"
         static let recentStreams = "sonosflow_recent_streams"
+        static let customPresets = "sonosflow_custom_presets"
     }
 
     private let defaults: UserDefaults
@@ -38,6 +39,18 @@ public final class AppSettings: ObservableObject {
         }
     }
 
+    @Published public var customPresets: [SavedStream] {
+        didSet {
+            if let data = try? JSONEncoder().encode(customPresets) {
+                defaults.set(data, forKey: Keys.customPresets)
+            }
+        }
+    }
+
+    public var allPresets: [SavedStream] {
+        return SavedStream.curatedPresets + customPresets
+    }
+
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.mcpBinaryPath = defaults.string(forKey: Keys.mcpBinaryPath) ?? ""
@@ -53,12 +66,29 @@ public final class AppSettings: ObservableObject {
         } else {
             self.recentStreams = []
         }
+
+        if let data = defaults.data(forKey: Keys.customPresets),
+           let presets = try? JSONDecoder().decode([SavedStream].self, from: data) {
+            self.customPresets = presets
+        } else {
+            self.customPresets = []
+        }
     }
 
     public func addRecentStream(_ stream: SavedStream) {
         var updated = recentStreams.filter { $0.url != stream.url }
         updated.insert(stream, at: 0)
         self.recentStreams = Array(updated.prefix(8))
+    }
+
+    public func addCustomPreset(_ stream: SavedStream) {
+        var updated = customPresets.filter { $0.url != stream.url }
+        updated.append(stream)
+        self.customPresets = updated
+    }
+
+    public func removeCustomPreset(id: String) {
+        self.customPresets.removeAll(where: { $0.id == id })
     }
 
     /// Resolves the executable path to mcp-sonos binary with fallback discovery

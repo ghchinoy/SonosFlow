@@ -12,7 +12,7 @@
   <a href="#disclaimer">Disclaimer</a> •
   <a href="#prerequisites--dependency">Prerequisites</a> •
   <a href="#quick-start">Quick Start</a> •
-  <a href="#immediate-usage">Immediate Usage</a> •
+  <a href="docs/user-guide.md">User Guide</a> •
   <a href="#features">Features</a> •
   <a href="#keyboard-shortcuts">Keyboard Shortcuts</a> •
   <a href="#development--testing">Development</a> •
@@ -193,7 +193,9 @@ Runs `SonosFlowSpike` in headless mode to verify process spawning, MCP handshake
 
 ## Documentation
 
-SonosFlow includes an [Astro Starlight](https://starlight.astro.build/) documentation site with architecture deep-dives, protocol specifications, user guides, and troubleshooting:
+For an end-to-end walkthrough of every feature, read the **[SonosFlow User Guide](docs/user-guide.md)**.
+
+SonosFlow also includes an [Astro Starlight](https://starlight.astro.build/) documentation site with architecture deep-dives, protocol specifications, user guides, and troubleshooting:
 
 ```bash
 # Install docs dependencies

@@ -33,6 +33,7 @@ export default defineConfig({
           label: 'Getting Started',
           items: [
             { label: 'Introduction & Setup', slug: 'guides/getting-started' },
+            { label: 'Complete User Guide', slug: 'guides/user-guide' },
           ],
         },
         {
@@ -41,6 +42,7 @@ export default defineConfig({
             { label: 'Mode A MiniPlayer & Proxy Icon', slug: 'guides/miniplayer' },
             { label: 'Menu Bar Extra Companion', slug: 'guides/menubar' },
             { label: 'Media Keys, Streams & Volumes', slug: 'guides/media-controls' },
+            { label: 'Internet Radio & Custom Presets', slug: 'guides/radio-presets' },
           ],
         },
         {

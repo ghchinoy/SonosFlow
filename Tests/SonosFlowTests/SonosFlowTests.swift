@@ -375,4 +375,21 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertEqual(settings.recentStreams.first?.url, s1.url)
         XCTAssertEqual(settings.recentStreams.count, 2)
     }
+
+    func testCustomPresetsPersistence() {
+        let defaults = UserDefaults(suiteName: "CustomPresetTestDefaults")!
+        defaults.removePersistentDomain(forName: "CustomPresetTestDefaults")
+        let settings = AppSettings(defaults: defaults)
+
+        let custom = SavedStream(title: "My Station", url: "https://radio.example.com/stream", genre: "Custom Radio")
+        settings.addCustomPreset(custom)
+
+        XCTAssertEqual(settings.customPresets.count, 1)
+        XCTAssertEqual(settings.customPresets.first?.title, "My Station")
+        XCTAssertTrue(settings.allPresets.contains(where: { $0.url == custom.url }))
+
+        settings.removeCustomPreset(id: custom.id)
+        XCTAssertEqual(settings.customPresets.count, 0)
+        XCTAssertFalse(settings.allPresets.contains(where: { $0.url == custom.url }))
+    }
 }

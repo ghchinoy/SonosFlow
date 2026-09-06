@@ -78,22 +78,91 @@ public struct StreamPlayerSheetView: View {
                         TextField("e.g. My Favorite Radio", text: $streamTitle)
                             .textFieldStyle(.roundedBorder)
 
-                        Button(action: playCurrentStream) {
-                            HStack {
-                                if isPlayingStream {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    Image(systemName: "play.fill")
+                        HStack(spacing: 10) {
+                            Button(action: playCurrentStream) {
+                                HStack {
+                                    if isPlayingStream {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Image(systemName: "play.fill")
+                                    }
+                                    Text("Play in \(coordinator.selectedGroup?.displayName ?? "Room")")
                                 }
-                                Text("Play Stream in \(coordinator.selectedGroup?.displayName ?? "Room")")
+                                .frame(maxWidth: .infinity)
                             }
-                            .frame(maxWidth: .infinity)
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.regular)
+                            .disabled(streamURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPlayingStream)
+
+                            Button(action: saveAsPreset) {
+                                Label("Save Preset", systemImage: "bookmark.fill")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.regular)
+                            .disabled(streamURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.regular)
-                        .disabled(streamURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPlayingStream)
                         .padding(.top, 4)
+                    }
+
+                    // Custom User Presets (if any)
+                    if !coordinator.settings.customPresets.isEmpty {
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("MY SAVED PRESETS")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.secondary)
+
+                            ForEach(coordinator.settings.customPresets) { preset in
+                                HStack(spacing: 12) {
+                                    Button(action: { playPreset(preset) }) {
+                                        HStack(spacing: 12) {
+                                            ZStack {
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .fill(Color.purple.opacity(0.15))
+                                                    .frame(width: 34, height: 34)
+                                                Image(systemName: "star.fill")
+                                                    .font(.system(size: 13))
+                                                    .foregroundColor(.purple)
+                                            }
+
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(preset.title)
+                                                    .font(.body.weight(.medium))
+                                                    .foregroundColor(.primary)
+                                                    .lineLimit(1)
+                                                Text(preset.url)
+                                                    .font(.caption2)
+                                                    .foregroundColor(.secondary)
+                                                    .lineLimit(1)
+                                            }
+
+                                            Spacer()
+
+                                            Image(systemName: "play.circle.fill")
+                                                .font(.system(size: 18))
+                                                .foregroundColor(.accentColor.opacity(0.8))
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Button(action: {
+                                        coordinator.settings.removeCustomPreset(id: preset.id)
+                                    }) {
+                                        Image(systemName: "trash")
+                                            .font(.caption2)
+                                            .foregroundColor(.red.opacity(0.7))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Remove preset")
+                                }
+                                .padding(.vertical, 4)
+                                .padding(.horizontal, 6)
+                                .background(Color.secondary.opacity(0.06))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                        }
                     }
 
                     Divider()
@@ -208,6 +277,15 @@ public struct StreamPlayerSheetView: View {
                 streamURL = str
             }
         }
+    }
+
+    private func saveAsPreset() {
+        let cleanURL = streamURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanURL.isEmpty else { return }
+        let cleanTitle = streamTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = cleanTitle.isEmpty ? (URL(string: cleanURL)?.host ?? "Custom Radio") : cleanTitle
+
+        coordinator.settings.addCustomPreset(SavedStream(title: title, url: cleanURL, genre: "Custom Radio"))
     }
 
     private func playCurrentStream() {
