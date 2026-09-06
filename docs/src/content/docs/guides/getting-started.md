@@ -3,7 +3,7 @@ title: Introduction & Setup
 description: How to install, configure, and run SonosFlow on macOS.
 ---
 
-SonosFlow is a native macOS application engineered in Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. It connects directly to the `mcp-sonos` binary from [`homectl`](https://github.com/ghchinoy/homectl) to control and monitor your Sonos system.
+SonosFlow is a native macOS application engineered in Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. It connects directly to the `mcp-sonos` binary from [`homectl`](https://ghchinoy.github.io/homectl/) to control and monitor your Sonos system.
 
 :::caution[Disclaimer]
 SonosFlow is an independent open-source community tool. It is **not** an official Sonos product and is **not affiliated with, sponsored by, or endorsed by Sonos, Inc.**

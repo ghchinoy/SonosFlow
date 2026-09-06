@@ -32,13 +32,13 @@
 
 ---
 
-SonosFlow is a lightweight, standalone macOS application built with Swift and SwiftUI for macOS 14 Sonoma and later. Similar to [LyriaFlow](../LyriaFlow), it connects directly to an MCP server—in this case, [`homectl-sonos`](../homectl)—over local stdio JSON-RPC. It gives you immediate visibility and control over all Sonos speaker groups, playback queues, artwork thumbnails, volume adjustments, and pinned favorites across your household.
+SonosFlow is a lightweight, standalone macOS application built with Swift and SwiftUI for macOS 14 Sonoma and later. Similar to [LyriaFlow](https://github.com/ghchinoy/LyriaFlow), it connects directly to an MCP server—in this case, [`homectl-sonos`](https://ghchinoy.github.io/homectl/)—over local stdio JSON-RPC. It gives you immediate visibility and control over all Sonos speaker groups, playback queues, artwork thumbnails, volume adjustments, and pinned favorites across your household.
 
 ---
 
 ## Prerequisites & Dependency
 
-SonosFlow **requires the [`homectl`](../homectl) Sonos Model Context Protocol (MCP) server (`mcp-sonos`) to be built or installed**. SonosFlow communicates directly with this binary over local stdio JSON-RPC without third-party daemons or cloud bridges.
+SonosFlow **requires the [`homectl`](https://ghchinoy.github.io/homectl/) Sonos Model Context Protocol (MCP) server (`mcp-sonos`) to be built or installed**. SonosFlow communicates directly with this binary over local stdio JSON-RPC without third-party daemons or cloud bridges.
 
 Before launching SonosFlow, verify or build `mcp-sonos`:
 

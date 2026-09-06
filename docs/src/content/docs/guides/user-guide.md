@@ -3,7 +3,7 @@ title: Complete User Guide
 description: End-to-end user manual and feature walkthrough for SonosFlow.
 ---
 
-This guide covers the operation, workflows, and advanced capabilities of **SonosFlow**, a native macOS Sonos controller powered by the [`homectl`](https://github.com/ghchinoy/homectl) Model Context Protocol (MCP) server.
+This guide covers the operation, workflows, and advanced capabilities of **SonosFlow**, a native macOS Sonos controller powered by the [`homectl`](https://ghchinoy.github.io/homectl/) Model Context Protocol (MCP) server.
 
 :::caution[Disclaimer]
 SonosFlow is an independent open-source community tool. It is **not** an official Sonos product and is not affiliated with or endorsed by Sonos, Inc.
@@ -13,7 +13,7 @@ SonosFlow is an independent open-source community tool. It is **not** an officia
 
 ## 1. Overview & Architecture
 
-SonosFlow is built with Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. It interfaces directly with the `homectl-sonos` binary over standard input and output pipes conforming to the Model Context Protocol (MCP) standard `2024-11-05`.
+SonosFlow is built with Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. Similar to [LyriaFlow](https://github.com/ghchinoy/LyriaFlow), it interfaces directly with the [`homectl-sonos`](https://ghchinoy.github.io/homectl/) binary over standard input and output pipes conforming to the Model Context Protocol (MCP) standard `2024-11-05`.
 
 ---
 

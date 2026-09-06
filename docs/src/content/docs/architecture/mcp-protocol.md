@@ -3,7 +3,7 @@ title: Direct MCP Integration
 description: How SonosFlow communicates with the homectl Sonos MCP server via stdio JSON-RPC 2.0.
 ---
 
-SonosFlow connects directly to the `mcp-sonos` binary provided by `homectl`. Rather than relying on an HTTP daemon or intermediate proxy, it uses local process piping conforming to the Model Context Protocol (MCP) standard `2024-11-05`.
+SonosFlow connects directly to the `mcp-sonos` binary provided by [`homectl`](https://ghchinoy.github.io/homectl/). Rather than relying on an HTTP daemon or intermediate proxy, it uses local process piping conforming to the Model Context Protocol (MCP) standard `2024-11-05`.
 
 ## Lifecycle & Handshake
 
