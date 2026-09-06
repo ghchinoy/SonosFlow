@@ -3,15 +3,18 @@ import SwiftUI
 public struct SpeakerSidebarView: View {
     @ObservedObject var coordinator: SonosCoordinator
     @Binding var showingFavorites: Bool
+    @Binding var showingStreamPlayer: Bool
     @Binding var showingSettings: Bool
 
     public init(
         coordinator: SonosCoordinator,
         showingFavorites: Binding<Bool>,
+        showingStreamPlayer: Binding<Bool>,
         showingSettings: Binding<Bool>
     ) {
         self.coordinator = coordinator
         self._showingFavorites = showingFavorites
+        self._showingStreamPlayer = showingStreamPlayer
         self._showingSettings = showingSettings
     }
 
@@ -146,6 +149,13 @@ public struct SpeakerSidebarView: View {
             }
             .buttonStyle(.plain)
             .help("Browse Sonos Favorites (⌘F)")
+
+            Button(action: { showingStreamPlayer = true }) {
+                Label("Stream", systemImage: "dot.radiowaves.left.and.right")
+                    .font(.caption.weight(.medium))
+            }
+            .buttonStyle(.plain)
+            .help("Play Audio Stream URL (⌘U)")
 
             Spacer()
 

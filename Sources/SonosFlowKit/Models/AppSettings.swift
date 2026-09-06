@@ -9,6 +9,7 @@ public final class AppSettings: ObservableObject {
         static let selectedGroupId = "sonosflow_selected_group_id"
         static let pollingInterval = "sonosflow_polling_interval"
         static let volumeDelta = "sonosflow_volume_delta"
+        static let recentStreams = "sonosflow_recent_streams"
     }
 
     private let defaults: UserDefaults
@@ -29,6 +30,14 @@ public final class AppSettings: ObservableObject {
         didSet { defaults.set(volumeDelta, forKey: Keys.volumeDelta) }
     }
 
+    @Published public var recentStreams: [SavedStream] {
+        didSet {
+            if let data = try? JSONEncoder().encode(recentStreams) {
+                defaults.set(data, forKey: Keys.recentStreams)
+            }
+        }
+    }
+
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.mcpBinaryPath = defaults.string(forKey: Keys.mcpBinaryPath) ?? ""
@@ -37,6 +46,19 @@ public final class AppSettings: ObservableObject {
         self.pollingInterval = interval > 0 ? interval : 4.0
         let delta = defaults.integer(forKey: Keys.volumeDelta)
         self.volumeDelta = delta > 0 ? delta : 5
+
+        if let data = defaults.data(forKey: Keys.recentStreams),
+           let streams = try? JSONDecoder().decode([SavedStream].self, from: data) {
+            self.recentStreams = streams
+        } else {
+            self.recentStreams = []
+        }
+    }
+
+    public func addRecentStream(_ stream: SavedStream) {
+        var updated = recentStreams.filter { $0.url != stream.url }
+        updated.insert(stream, at: 0)
+        self.recentStreams = Array(updated.prefix(8))
     }
 
     /// Resolves the executable path to mcp-sonos binary with fallback discovery

@@ -40,6 +40,7 @@ export default defineConfig({
           items: [
             { label: 'Mode A MiniPlayer & Proxy Icon', slug: 'guides/miniplayer' },
             { label: 'Menu Bar Extra Companion', slug: 'guides/menubar' },
+            { label: 'Media Keys, Streams & Volumes', slug: 'guides/media-controls' },
           ],
         },
         {

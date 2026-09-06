@@ -101,6 +101,17 @@ public final class SonosService: Sendable {
         _ = try await client.callTool(name: "sonos_play_favorite", arguments: args)
     }
 
+    public func playStream(ip: String, url: String, title: String? = nil) async throws {
+        var args: [String: Any] = [
+            "ip": ip,
+            "url": url
+        ]
+        if let t = title, !t.isEmpty {
+            args["title"] = t
+        }
+        _ = try await client.callTool(name: "sonos_play_stream", arguments: args)
+    }
+
     // MARK: - Queue Mutations (Pure MCP: sonos_queue_edit)
     // Invokes the official `sonos_queue_edit` tool on the homectl MCP server
     // (implemented in homectl via beads issues control-znc, control-s5y, and control-6ht).

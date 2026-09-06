@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct TransportBarView: View {
     @ObservedObject var coordinator: SonosCoordinator
+    @State private var showingGroupVolumes: Bool = false
 
     public init(coordinator: SonosCoordinator) {
         self.coordinator = coordinator
@@ -64,6 +65,21 @@ public struct TransportBarView: View {
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundColor(.secondary)
                 .frame(width: 38, alignment: .trailing)
+
+            // Individual Speaker Volumes Popover for Stereo Pairs & Groups
+            if (coordinator.selectedGroup?.members.count ?? 0) > 1 {
+                Button(action: { showingGroupVolumes.toggle() }) {
+                    Image(systemName: "slider.horizontal.2")
+                        .font(.system(size: 12))
+                        .foregroundColor(showingGroupVolumes ? .accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Adjust individual speaker volumes in group")
+                .accessibilityLabel("Individual speaker volumes")
+                .popover(isPresented: $showingGroupVolumes, arrowEdge: .bottom) {
+                    GroupVolumePopoverView(coordinator: coordinator)
+                }
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)

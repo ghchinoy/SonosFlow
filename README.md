@@ -97,7 +97,10 @@ make app
 ## Features
 
 - **Direct MCP Integration**: Zero-daemon architecture communicating directly with `mcp-sonos` via stdio JSON-RPC 2.0.
-- **Mode A Floating MiniPlayer**: Seamlessly morphs the main window between a full split-view layout and a compact (340×118 pt) floating card (`⌘M`).
+- **Hardware Media Keys & macOS Control Center**: Integrates with Apple's `MediaPlayer` framework so Mac physical keys (F7, F8, F9), AirPods, and the macOS Now Playing widget control SonosFlow.
+- **Audio Stream Player & Radio Presets**: Stream arbitrary internet radio, podcasts, and Icecast URLs (`⌘U`) with built-in presets (SomaFM, KEXP, BBC 6) and recent history.
+- **Expandable Group Volumes**: Individual speaker volume sliders for stereo pairs and multi-room clusters with independent speaker level balancing.
+- **Mode A Floating MiniPlayer**: Seamlessly morphs the main window between a full split-view layout and a compact (340×110 pt) floating card (`⌘M`).
 - **macOS Title Bar Proxy Icon**: Draggable document icon in the title bar representing the cached album cover image.
 - **Two-Tier Album Artwork Cache**: Fast in-memory `NSCache` and SHA-256 persistent disk storage (`~/Library/Caches/com.sonosflow.app/Artwork/`) with live cache size management in Settings.
 - **Menu Bar Extra Companion**: Status bar icon for switching rooms, checking now-playing status, adjusting volume, and triggering pinned favorites.
@@ -154,15 +157,19 @@ sonos-swift-mcp/
 
 | Shortcut | Action | Description |
 |---|---|---|
-| `Space` | Play / Pause | Toggle playback on active speaker group |
-| `⌘ M` | Toggle MiniPlayer | Morph window between full split-view and floating miniplayer |
-| `Esc` | Exit MiniPlayer | Restore full window from miniplayer mode |
-| `⌘ →` | Next Track | Skip to next track in queue |
-| `⌘ ←` | Previous Track | Return to previous track |
+| `Space` / `F8` | Play / Pause | Toggle playback on active speaker group (supports Mac F8 hardware key) |
+| `⌘ →` / `F9` | Next Track | Skip to next track in queue (supports Mac F9 hardware key) |
+| `⌘ ←` / `F7` | Previous Track | Return to previous track (supports Mac F7 hardware key) |
 | `⌘ ↑` | Volume Up | Increase master volume (+5%) |
 | `⌘ ↓` | Volume Down | Decrease master volume (-5%) |
+| `⌘ ⌥ ↓` | Mute / Unmute | Toggle volume mute on active room |
+| `⌘ U` | Audio Stream | Open Audio Stream Player dialog with presets & custom URLs |
+| `⌘ M` | Toggle MiniPlayer | Morph window between full split-view and floating miniplayer |
+| `Esc` | Exit MiniPlayer | Restore full window from miniplayer mode |
 | `⌘ R` | Refresh | Refresh speaker groups & queue |
+| `⌘ ⇧ R` | Reload MCP Server | Restart `mcp-sonos` child process and reload registered tools |
 | `⌘ F` | Favorites | Open pinned Sonos favorites sheet |
+| `⌘ 1...9` | Switch Room | Switch active speaker group to room #1 through #9 |
 | `⌘ ,` | Settings | Open Settings / Preferences |
 | `⌘ Q` | Quit | Quit application and cleanly stop child processes |
 

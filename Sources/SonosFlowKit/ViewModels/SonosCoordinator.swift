@@ -13,6 +13,7 @@ public final class SonosCoordinator: ObservableObject {
     @Published public var favorites: [SonosFavorite] = []
     @Published public var volume: Double = 0.0
     @Published public var isMuted: Bool = false
+    @Published public var memberVolumes: [String: Double] = [:]
     @Published public var groupPlaybackStates: [String: String] = [:]
     @Published public var isLoadingQueue: Bool = false
     @Published public var isRefreshing: Bool = false
@@ -55,6 +56,33 @@ public final class SonosCoordinator: ObservableObject {
     ) {
         self.sonosService = sonosService
         self.settings = settings
+        setupMediaManager()
+    }
+
+    private func setupMediaManager() {
+        let manager = NowPlayingMediaManager.shared
+        manager.onPlay = { [weak self] in await self?.play() }
+        manager.onPause = { [weak self] in await self?.pause() }
+        manager.onTogglePlayPause = { [weak self] in await self?.togglePlayPause() }
+        manager.onNext = { [weak self] in await self?.next() }
+        manager.onPrevious = { [weak self] in await self?.previous() }
+        manager.onSeekTime = { [weak self] seconds in await self?.seekTime(seconds: seconds) }
+        manager.configureRemoteCommands()
+    }
+
+    public func seekTime(seconds: Double) async {
+        guard let ip = selectedGroup?.coordinatorIP else { return }
+        let totalSecs = max(0, Int(seconds))
+        let hours = totalSecs / 3600
+        let minutes = (totalSecs % 3600) / 60
+        let secs = totalSecs % 60
+        let target = String(format: "%02d:%02d:%02d", hours, minutes, secs)
+        do {
+            try await sonosService.control(ip: ip, action: "seek_time", target: target)
+            await refreshNowPlaying(ip: ip)
+        } catch {
+            AppLogger.shared.warning("Failed to seek to \(target) on \(ip): \(error)", category: "COORDINATOR")
+        }
     }
 
     deinit {
@@ -250,6 +278,29 @@ public final class SonosCoordinator: ObservableObject {
         await refreshNowPlaying(ip: ip)
         await refreshQueue(ip: ip)
         await refreshFavorites(ip: ip)
+        await refreshMemberVolumes(for: group)
+    }
+
+    public func refreshMemberVolumes(for group: TopologyGroup) async {
+        for member in group.members {
+            guard let ip = member.ip, !ip.isEmpty else { continue }
+            if let np = try? await sonosService.getNowPlaying(ip: ip) {
+                self.memberVolumes[ip] = Double(np.volume)
+            }
+        }
+    }
+
+    public func setMemberVolume(memberIP: String, volume: Double) {
+        let clamped = max(0.0, min(100.0, volume))
+        self.memberVolumes[memberIP] = clamped
+
+        Task {
+            do {
+                try await sonosService.setVolume(ip: memberIP, volume: Int(clamped))
+            } catch {
+                AppLogger.shared.warning("Failed to set member volume on \(memberIP): \(error)", category: "COORDINATOR")
+            }
+        }
     }
 
     // MARK: - Now Playing
@@ -263,6 +314,24 @@ public final class SonosCoordinator: ObservableObject {
             self.isMuted = (np.volume == 0)
             if let sel = selectedGroup {
                 self.groupPlaybackStates[sel.id] = np.state
+            }
+
+            // Sync with macOS Control Center & hardware media keys
+            let artURL = self.currentArtworkURL
+            Task {
+                var img: NSImage? = nil
+                if let url = artURL {
+                    img = await ArtworkCache.shared.image(for: url)
+                }
+                NowPlayingMediaManager.shared.updateNowPlaying(
+                    title: np.displayTitle,
+                    artist: np.artist,
+                    album: np.album,
+                    duration: np.durationSeconds,
+                    elapsed: np.progressSeconds,
+                    isPlaying: np.isPlaying,
+                    artwork: img
+                )
             }
 
             // Self-healing queue recovery:
@@ -446,6 +515,28 @@ public final class SonosCoordinator: ObservableObject {
         } catch {
             errorMessage = "Failed to play favorite '\(favorite.title)': \(error.localizedDescription)"
             AppLogger.shared.error("playFavorite failed: \(error)", category: "COORDINATOR")
+        }
+    }
+
+    public func playStream(url: String, title: String? = nil) async {
+        guard let ip = selectedGroup?.coordinatorIP else { return }
+        let trimmedURL = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedURL.isEmpty else { return }
+        let cleanTitle = (title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? title : nil
+
+        do {
+            AppLogger.shared.log("Starting audio stream \(trimmedURL) on \(ip)", category: "COORDINATOR")
+            try await sonosService.playStream(ip: ip, url: trimmedURL, title: cleanTitle)
+
+            let savedTitle = cleanTitle ?? URL(string: trimmedURL)?.host ?? "Audio Stream"
+            settings.addRecentStream(SavedStream(title: savedTitle, url: trimmedURL))
+
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            await refreshNowPlaying(ip: ip)
+            await refreshQueue(ip: ip)
+        } catch {
+            errorMessage = "Failed to play stream: \(error.localizedDescription)"
+            AppLogger.shared.error("playStream failed: \(error)", category: "COORDINATOR")
         }
     }
 

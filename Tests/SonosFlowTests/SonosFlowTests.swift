@@ -354,4 +354,25 @@ final class SonosFlowTests: XCTestCase {
         // Verify positions remain their true queue position
         XCTAssertEqual(filtered.map(\.position), [1, 16, 33])
     }
+
+    func testSavedStreamPresets() {
+        XCTAssertFalse(SavedStream.curatedPresets.isEmpty)
+        for preset in SavedStream.curatedPresets {
+            XCTAssertFalse(preset.title.isEmpty)
+            XCTAssertTrue(preset.url.hasPrefix("http://") || preset.url.hasPrefix("https://"))
+        }
+    }
+
+    func testRecentStreamsPersistence() {
+        let settings = AppSettings(defaults: UserDefaults(suiteName: "TestDefaults")!)
+        let s1 = SavedStream(title: "Stream 1", url: "https://example.com/1.mp3")
+        let s2 = SavedStream(title: "Stream 2", url: "https://example.com/2.mp3")
+
+        settings.addRecentStream(s1)
+        settings.addRecentStream(s2)
+        settings.addRecentStream(s1) // duplicate should move to top
+
+        XCTAssertEqual(settings.recentStreams.first?.url, s1.url)
+        XCTAssertEqual(settings.recentStreams.count, 2)
+    }
 }

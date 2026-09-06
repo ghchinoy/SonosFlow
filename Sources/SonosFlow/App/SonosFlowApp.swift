@@ -157,6 +157,13 @@ struct SonosFlowApp: App {
                     coordinator.toggleMiniPlayerMode()
                 }
                 .keyboardShortcut("m", modifiers: .command)
+
+                Divider()
+
+                Button("Play Audio Stream...") {
+                    // Handled via standard shortcut ⌘U in MainSplitView
+                }
+                .keyboardShortcut("u", modifiers: .command)
             }
 
             // Queue Menu

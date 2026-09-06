@@ -409,6 +409,30 @@ public struct ListFavoritesResult: Codable {
     }
 }
 
+// MARK: - Audio Streams & Presets
+
+public struct SavedStream: Codable, Identifiable, Hashable {
+    public var id: String { url }
+    public let title: String
+    public let url: String
+    public let genre: String?
+
+    public init(title: String, url: String, genre: String? = nil) {
+        self.title = title
+        self.url = url
+        self.genre = genre
+    }
+
+    public static let curatedPresets: [SavedStream] = [
+        SavedStream(title: "SomaFM: Groove Salad", url: "https://ice1.somafm.com/groovesalad-128-mp3", genre: "Downtempo Ambient"),
+        SavedStream(title: "KEXP 90.3 FM Seattle", url: "https://kexp.streamguys1.com/kexp128.mp3", genre: "Indie / Alternative"),
+        SavedStream(title: "BBC Radio 6 Music", url: "http://stream.live.vc.bbcmedia.co.uk/bbc_6music", genre: "Alternative / Eclectic"),
+        SavedStream(title: "SomaFM: Drone Zone", url: "https://ice1.somafm.com/dronezone-128-mp3", genre: "Atmospheric Ambient"),
+        SavedStream(title: "WNYC 93.9 FM New York", url: "https://fm939.wnyc.org/wnycfm-web", genre: "Public Radio / News"),
+        SavedStream(title: "SomaFM: DEF CON Radio", url: "https://ice1.somafm.com/defcon-128-mp3", genre: "Electronic / Hacker")
+    ]
+}
+
 // MARK: - Time Parsing Helpers
 
 public func parseDurationSeconds(_ str: String?) -> Double {
