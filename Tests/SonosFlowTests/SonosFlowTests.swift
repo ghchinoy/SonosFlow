@@ -336,4 +336,22 @@ final class SonosFlowTests: XCTestCase {
         let sortedWithActive = SonosCoordinator.prioritizeSeedSpeakers(speakers: speakers, activeCoordinatorIP: "192.168.4.100")
         XCTAssertEqual(sortedWithActive.first, "192.168.4.100")
     }
+
+    func testQueueFilteringPreservesPositions() {
+        let items = [
+            QueueItem(position: 1, trackID: "Q:0/1", title: "Poison", artist: "Alice Cooper"),
+            QueueItem(position: 16, trackID: "Q:0/16", title: "White Horses", artist: "Wolf Alice"),
+            QueueItem(position: 33, trackID: "Q:0/33", title: "Sound of da Police", artist: "KRS-One"),
+            QueueItem(position: 50, trackID: "Q:0/50", title: "Shake It Off", artist: "Taylor Swift")
+        ]
+
+        // Filter for "ce"
+        let filtered = items.filter { item in
+            item.title.localizedCaseInsensitiveContains("ce") || item.artist.localizedCaseInsensitiveContains("ce")
+        }
+
+        XCTAssertEqual(filtered.count, 3)
+        // Verify positions remain their true queue position
+        XCTAssertEqual(filtered.map(\.position), [1, 16, 33])
+    }
 }

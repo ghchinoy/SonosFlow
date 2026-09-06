@@ -23,7 +23,38 @@ public struct QueueListView: View {
 
             Divider()
 
-            // Main Queue List or Empty State
+            // Active Filter Banner
+            if isFiltering {
+                HStack(spacing: 8) {
+                    Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                        .foregroundColor(.accentColor)
+                        .font(.caption)
+
+                    Text("Showing \(filteredItems.count) of \(coordinator.queueItems.count) tracks matching \"\(searchText)\"")
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(.primary)
+
+                    Spacer()
+
+                    Button(action: { searchText = "" }) {
+                        Text("Clear Filter (Esc)")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundColor(.accentColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(Color.accentColor.opacity(0.06))
+
+                Divider()
+            }
+
+            // Main Queue List, Empty Search, or Empty Queue State
             if coordinator.isLoadingQueue && coordinator.queueItems.isEmpty {
                 VStack(spacing: 12) {
                     Spacer()
@@ -36,6 +67,23 @@ public struct QueueListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if coordinator.queueItems.isEmpty {
                 emptyQueueView
+            } else if filteredItems.isEmpty {
+                VStack(spacing: 12) {
+                    Spacer()
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 36))
+                        .foregroundColor(.secondary.opacity(0.4))
+                    Text("No tracks matching \"\(searchText)\"")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    Button("Clear Filter") {
+                        searchText = ""
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(selection: $selectedTrackId) {
                     ForEach(filteredItems) { item in
@@ -116,6 +164,9 @@ public struct QueueListView: View {
                 TextField("Filter queue...", text: $searchText)
                     .textFieldStyle(.plain)
                     .font(.caption)
+                    .onExitCommand {
+                        searchText = ""
+                    }
 
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
@@ -186,6 +237,10 @@ public struct QueueListView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var isFiltering: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var filteredItems: [QueueItem] {

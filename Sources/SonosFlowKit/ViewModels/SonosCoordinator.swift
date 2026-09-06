@@ -286,9 +286,26 @@ public final class SonosCoordinator: ObservableObject {
         defer { isLoadingQueue = false }
 
         do {
-            let q = try await sonosService.getQueue(ip: targetIP, start: 0, count: 100)
-            self.queueItems = q.items
-            self.queueTotalMatches = q.totalMatches
+            var allItems: [QueueItem] = []
+            var startIndex = 0
+            var totalMatches = 0
+            let batchSize = 100
+            let maxTracks = 1000 // Safety cap
+
+            repeat {
+                let q = try await sonosService.getQueue(ip: targetIP, start: startIndex, count: batchSize)
+                totalMatches = q.totalMatches
+                allItems.append(contentsOf: q.items)
+                startIndex += q.returned
+
+                if q.returned == 0 || allItems.count >= totalMatches || allItems.count >= maxTracks {
+                    break
+                }
+            } while allItems.count < totalMatches
+
+            self.queueItems = allItems
+            self.queueTotalMatches = totalMatches
+            AppLogger.shared.log("Loaded \(allItems.count) of \(totalMatches) queue tracks on \(targetIP)", category: "COORDINATOR")
         } catch {
             AppLogger.shared.warning("Failed to refresh queue for \(targetIP): \(error)", category: "COORDINATOR")
         }
