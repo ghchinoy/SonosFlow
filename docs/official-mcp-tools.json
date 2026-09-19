@@ -1,0 +1,1129 @@
+[
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : true,
+      "title" : "List the user's Sonos households, groups, and players"
+    },
+    "description" : "Get the household, group, and player IDs every other Sonos tool needs — a discovery of the user's whole Sonos system(s): every household, its groups (each with current playback state), and their players (speakers) with capabilities. Call it the first time you need any ID, and again after any grouping change (add_players_to_group, remove_players_from_group, move_audio_to_players), since group IDs and memberships go stale. Otherwise reuse that result for the rest of the conversation — no need to call it again before every operation. Only a call made in the current conversation is authoritative — never rely on names or IDs from any other source (your memory, past conversations, or general knowledge of the setup), because the system can change anytime (players renamed, groups reorganized, added, or removed).",
+    "inputSchema" : {
+      "properties" : {
+
+      },
+      "required" : [
+
+      ],
+      "type" : "object"
+    },
+    "name" : "get_households_and_groups_and_players",
+    "title" : "List the user's Sonos households, groups, and players"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : true,
+      "title" : "Get what's playing now"
+    },
+    "description" : "Return what's currently playing on a Sonos group: the source (playlist, station, album, or radio, with its name and type); the current song or track's name, artist, album, and duration — or, for radio and other streams, the station or stream info; and the next track when available. Playback advances continuously — call this every time the user asks what's playing, even if you called it earlier in the conversation.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "get_now_playing",
+    "title" : "Get what's playing now"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : true,
+      "title" : "Get shuffle, repeat, and crossfade"
+    },
+    "description" : "Get the shuffle, repeat, and crossfade settings for a Sonos group. Returns shuffle, repeat, repeatOne, and crossfade as booleans.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "get_shuffle_repeat_crossfade",
+    "title" : "Get shuffle, repeat, and crossfade"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Set shuffle, repeat, and crossfade"
+    },
+    "description" : "Change one or more of the shuffle, repeat, and crossfade settings for the content currently playing on a Sonos group: shuffle, repeat, repeat_one, or crossfade. Omit any setting to leave it unchanged; specify at least one. Settings take effect from the next track transition and do not change the currently-playing track. To shuffle content you are about to start, set the shuffle parameter on the play_* tool instead.",
+    "inputSchema" : {
+      "properties" : {
+        "crossfade" : {
+          "description" : "Enable or disable crossfade",
+          "type" : "boolean"
+        },
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "repeat" : {
+          "description" : "Enable or disable repeating all tracks",
+          "type" : "boolean"
+        },
+        "repeat_one" : {
+          "description" : "Enable or disable repeating the current track",
+          "type" : "boolean"
+        },
+        "shuffle" : {
+          "description" : "Enable or disable shuffle",
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "set_shuffle_repeat_crossfade",
+    "title" : "Set shuffle, repeat, and crossfade"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Resume playback"
+    },
+    "description" : "Resume playback on a Sonos group — unpause and continue playing. This is the plain 'play'\/'resume'\/'unpause' action; to start new content, use one of the play_* tools. IMPORTANT: Stateless command — always execute when asked, without first checking or assuming whether music is playing or paused.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "resume",
+    "title" : "Resume playback"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Pause playback"
+    },
+    "description" : "Pause playback on a Sonos group — stop the music where it is (it can be resumed). This is the plain 'pause'\/'stop' action. IMPORTANT: Stateless command — always execute when asked, without first checking or assuming whether music is playing or paused.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "pause",
+    "title" : "Pause playback"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Skip to next track"
+    },
+    "description" : "Skip to the next track on a Sonos group. Use this when the user asks to skip or play the next track.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "skip_to_next_track",
+    "title" : "Skip to next track"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Skip to previous track"
+    },
+    "description" : "Skip to the previous track on a Sonos group. Use this when the user asks to go back or play the previous track.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "skip_to_previous_track",
+    "title" : "Skip to previous track"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Jump to a time in the current track"
+    },
+    "description" : "Jump to a specific time in the currently playing track on a Sonos group. Pass position_millis for an absolute target, or delta_millis to fast forward (positive) or rewind (negative) from the current position.",
+    "inputSchema" : {
+      "properties" : {
+        "delta_millis" : {
+          "description" : "Offset from the current position, in milliseconds — positive to fast forward, negative to rewind",
+          "maximum" : 9007199254740991,
+          "minimum" : -9007199254740991,
+          "type" : "integer"
+        },
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "position_millis" : {
+          "description" : "Absolute time position within the track, in milliseconds",
+          "maximum" : 9007199254740991,
+          "minimum" : 0,
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "seek",
+    "title" : "Jump to a time in the current track"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : true,
+      "title" : "Get player volume"
+    },
+    "description" : "Get the volume and mute state of a Sonos player. Group volume and player volume are linked — changing one affects the other. To get the volume of a whole group, use get_group_volume instead.",
+    "inputSchema" : {
+      "properties" : {
+        "player_id" : {
+          "description" : "The Sonos player ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "player_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "get_player_volume",
+    "title" : "Get player volume"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Set player volume"
+    },
+    "description" : "Set the volume of a Sonos player to a specific level. Setting a player's volume does not change its mute state. Group volume and player volume are linked — changing one affects the other. To set the volume of a whole group proportionally, use set_group_volume instead.",
+    "inputSchema" : {
+      "properties" : {
+        "player_id" : {
+          "description" : "The Sonos player ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "volume" : {
+          "description" : "Volume level",
+          "maximum" : 100,
+          "minimum" : 0,
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "player_id",
+        "volume"
+      ],
+      "type" : "object"
+    },
+    "name" : "set_player_volume",
+    "title" : "Set player volume"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Mute or unmute a player"
+    },
+    "description" : "Mute or unmute a Sonos player. Group volume and player volume are linked — changing one affects the other. To mute all players in a group, use set_group_mute instead.",
+    "inputSchema" : {
+      "properties" : {
+        "muted" : {
+          "description" : "true to mute, false to unmute",
+          "type" : "boolean"
+        },
+        "player_id" : {
+          "description" : "The Sonos player ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "player_id",
+        "muted"
+      ],
+      "type" : "object"
+    },
+    "name" : "set_player_mute",
+    "title" : "Mute or unmute a player"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Turn player volume up or down"
+    },
+    "description" : "Turn a Sonos player's volume up or down by the specified amount. Adjusting a player's volume does not change its mute state. Group volume and player volume are linked — changing one affects the other. To turn a whole group up or down proportionally, use adjust_group_volume instead.",
+    "inputSchema" : {
+      "properties" : {
+        "player_id" : {
+          "description" : "The Sonos player ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "volume_delta" : {
+          "description" : "Amount to adjust volume",
+          "maximum" : 100,
+          "minimum" : -100,
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "player_id",
+        "volume_delta"
+      ],
+      "type" : "object"
+    },
+    "name" : "adjust_player_volume",
+    "title" : "Turn player volume up or down"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : true,
+      "title" : "Get group volume"
+    },
+    "description" : "Get the volume and mute state of a Sonos group. Group volume is the average level across the group's players. Group volume and player volume are linked — changing one affects the other. To get the volume of a single player, use get_player_volume instead.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "get_group_volume",
+    "title" : "Get group volume"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Set group volume"
+    },
+    "description" : "Set the volume of a Sonos group to a specific level. Scales all players in the group proportionally, preserving their relative balance — it does not set every player to the same level. If the group is muted (all its players muted), setting the group volume also unmutes it. Group volume and player volume are linked — changing one affects the other. To set the volume of a single player, use set_player_volume; to set every player to an identical level, call it on each player individually instead.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "volume" : {
+          "description" : "Volume level",
+          "maximum" : 100,
+          "minimum" : 0,
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "group_id",
+        "volume"
+      ],
+      "type" : "object"
+    },
+    "name" : "set_group_volume",
+    "title" : "Set group volume"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Mute or unmute a group"
+    },
+    "description" : "Mute or unmute all players in a Sonos group. Group volume and player volume are linked — changing one affects the other. To mute a single player, use set_player_mute instead.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "muted" : {
+          "description" : "true to mute, false to unmute",
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "group_id",
+        "muted"
+      ],
+      "type" : "object"
+    },
+    "name" : "set_group_mute",
+    "title" : "Mute or unmute a group"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Turn group volume up or down"
+    },
+    "description" : "Turn a Sonos group's volume up or down by the specified amount. Adjusts all players in the group proportionally, preserving their relative balance — it does not apply the same delta to every player. If the group is muted (all its players muted), adjusting the group volume also unmutes it. Group volume and player volume are linked — changing one affects the other. To turn a single player up or down, use adjust_player_volume; to apply an identical delta to every player, call it on each player individually instead.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "volume_delta" : {
+          "description" : "Amount to adjust volume",
+          "maximum" : 100,
+          "minimum" : -100,
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "group_id",
+        "volume_delta"
+      ],
+      "type" : "object"
+    },
+    "name" : "adjust_group_volume",
+    "title" : "Turn group volume up or down"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : true,
+      "title" : "List Sonos favorites"
+    },
+    "description" : "Get all Sonos favorites saved to a Sonos household. These are items saved within the Sonos app and are distinct from favorites or saved content on any music service. Returns each favorite's name and ID. Use this when the user asks what Sonos favorites are available, or to look up a favorite ID before playing one. Favorites marked `unavailable: true` can't be played — likely the associated music service account is missing.",
+    "inputSchema" : {
+      "properties" : {
+        "household_id" : {
+          "description" : "The Sonos household ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "household_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "get_sonos_favorites",
+    "title" : "List Sonos favorites"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : true,
+      "title" : "List Sonos playlists"
+    },
+    "description" : "Get all Sonos playlists saved to a Sonos household. These are playlists created in or imported into the Sonos app and are distinct from playlists on any music service. Returns each playlist's name, ID, and track count. Use this when the user asks what Sonos playlists are available, or to look up a playlist ID before playing one.",
+    "inputSchema" : {
+      "properties" : {
+        "household_id" : {
+          "description" : "The Sonos household ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "household_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "get_sonos_playlists",
+    "title" : "List Sonos playlists"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Play a Sonos playlist"
+    },
+    "description" : "Play a Sonos playlist on a group. Use get_sonos_playlists first to find the playlist ID. For music service playlists use play_playlist instead.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "playlist_id" : {
+          "description" : "The playlist ID (from get_sonos_playlists)",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "shuffle" : {
+          "description" : "Set true only when the user clearly asks to shuffle; otherwise false (play in order). Sets the same state as set_shuffle_repeat_crossfade — no separate call needed.",
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "group_id",
+        "playlist_id",
+        "shuffle"
+      ],
+      "type" : "object"
+    },
+    "name" : "play_sonos_playlist",
+    "title" : "Play a Sonos playlist"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Play a Sonos favorite"
+    },
+    "description" : "Play a Sonos favorite on a group. Use get_sonos_favorites first to find the favorite ID.",
+    "inputSchema" : {
+      "properties" : {
+        "favorite_id" : {
+          "description" : "The favorite ID (from get_sonos_favorites)",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "shuffle" : {
+          "description" : "Set true only when the user clearly asks to shuffle; otherwise false (play in order). Sets the same state as set_shuffle_repeat_crossfade — no separate call needed.",
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "group_id",
+        "favorite_id",
+        "shuffle"
+      ],
+      "type" : "object"
+    },
+    "name" : "play_sonos_favorite",
+    "title" : "Play a Sonos favorite"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Play a player's line-in input"
+    },
+    "description" : "Play the line-in audio from one Sonos player on a group. Use this when the user wants an external audio source (turntable, record player, CD player, etc.) connected to a player's line-in jack to play on a group — e.g., 'play the kitchen's line-in in the bedroom'. The source player must have a line-in jack — check that `LINE_IN` is in its capabilities from get_households_and_groups_and_players.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "source_player_id" : {
+          "description" : "The player ID with the line-in jack (check `LINE_IN` in capabilities; from get_households_and_groups_and_players)",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id",
+        "source_player_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "play_player_line_in",
+    "title" : "Play a player's line-in input"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : true,
+      "title" : "List connected music services"
+    },
+    "description" : "List the music services the user has set up for a Sonos household. Call this only to answer informational queries like 'what music services are set up on Sonos?' The accountLabel is a user-defined label for disambiguating multiple accounts of the same service; it defaults to the account name but can be any string.",
+    "inputSchema" : {
+      "properties" : {
+        "household_id" : {
+          "description" : "The Sonos household ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "household_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "get_registered_music_services",
+    "title" : "List connected music services"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Add players to a group"
+    },
+    "description" : "Add players to a Sonos group. The added players adopt the group's current audio (replacing whatever they were previously playing). Use this for requests like 'add the bedroom to the group' or 'also play in the kitchen'. Also use this before starting multi-player playback ('play X in both the kitchen and bedroom') — group the players first, then call a play_* tool on the combined group so all players play in sync. All players must belong to the same household as the group. IMPORTANT: After this call, always call get_households_and_groups_and_players once before continuing — group IDs and memberships from earlier in the conversation may be invalid (groups can be created, disbanded, or recomposed; player IDs stay stable). Don't reason about what changed; use the fresh state.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group gaining the players",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "player_ids" : {
+          "description" : "The players to add to the group",
+          "items" : {
+            "type" : "string"
+          },
+          "minItems" : 1,
+          "type" : "array"
+        }
+      },
+      "required" : [
+        "group_id",
+        "player_ids"
+      ],
+      "type" : "object"
+    },
+    "name" : "add_players_to_group",
+    "title" : "Add players to a group"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Remove players from a group"
+    },
+    "description" : "Remove players from a Sonos group. The removed players stop playing (their previous audio does not resume); the rest of the group continues uninterrupted. Use this for requests like 'remove the bedroom from the group' or 'ungroup the kitchen'. All players must belong to the same household as the group. IMPORTANT: After this call, always call get_households_and_groups_and_players once before continuing — group IDs and memberships from earlier in the conversation may be invalid (groups can be created, disbanded, or recomposed; player IDs stay stable). Don't reason about what changed; use the fresh state.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group losing the players",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "player_ids" : {
+          "description" : "The players to remove from the group",
+          "items" : {
+            "type" : "string"
+          },
+          "minItems" : 1,
+          "type" : "array"
+        }
+      },
+      "required" : [
+        "group_id",
+        "player_ids"
+      ],
+      "type" : "object"
+    },
+    "name" : "remove_players_from_group",
+    "title" : "Remove players from a group"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Move audio to a new set of players"
+    },
+    "description" : "Move the audio currently playing on a Sonos group to a new set of players, atomically and with no audio gap. Players in the source group not listed in destination_player_ids stop playing (their previous audio does not resume); players in destination_player_ids that weren't in the source group adopt the moved audio. Use this for requests like 'move the music from the kitchen to the bedroom', 'switch playback to the kitchen instead', or 'play in the bedroom only'. To simply add players to a group, use add_players_to_group; to simply remove, use remove_players_from_group. All players must belong to the same household as the group. IMPORTANT: After this call, always call get_households_and_groups_and_players once before continuing — group IDs and memberships from earlier in the conversation may be invalid (groups can be created, disbanded, or recomposed; player IDs stay stable). Don't reason about what changed; use the fresh state.",
+    "inputSchema" : {
+      "properties" : {
+        "destination_player_ids" : {
+          "description" : "The players that will be playing the audio after the move",
+          "items" : {
+            "type" : "string"
+          },
+          "minItems" : 1,
+          "type" : "array"
+        },
+        "source_group_id" : {
+          "description" : "The Sonos group whose audio is being moved",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "source_group_id",
+        "destination_player_ids"
+      ],
+      "type" : "object"
+    },
+    "name" : "move_audio_to_players",
+    "title" : "Move audio to a new set of players"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : true,
+      "title" : "Get night sound and speech enhancement"
+    },
+    "description" : "Get the Night Sound and Speech Enhancement settings for a Sonos player. Speech Enhancement improves TV dialogue and voice clarity; Night Sound reduces loud effects for late-night listening. Only supported on players with home theater playback (soundbars) — check that `HT_PLAYBACK` is in their capabilities from get_households_and_groups_and_players. Returns nightSound and speechEnhancement as booleans.",
+    "inputSchema" : {
+      "properties" : {
+        "player_id" : {
+          "description" : "The Sonos player ID",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "player_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "get_night_sound_and_speech_enhancement",
+    "title" : "Get night sound and speech enhancement"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Set night sound and speech enhancement"
+    },
+    "description" : "Set Night Sound and Speech Enhancement for a Sonos player. Speech Enhancement improves TV dialogue and voice clarity; Night Sound reduces loud effects for late-night listening. Only supported on players with home theater playback (soundbars) — check that `HT_PLAYBACK` is in their capabilities from get_households_and_groups_and_players. Omit any setting to leave it unchanged; specify at least one.",
+    "inputSchema" : {
+      "properties" : {
+        "night_sound" : {
+          "description" : "Enable or disable Night Sound (reduces loud sounds, amplifies soft ones)",
+          "type" : "boolean"
+        },
+        "player_id" : {
+          "description" : "The Sonos player ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "speech_enhancement" : {
+          "description" : "Enable or disable Speech Enhancement (boosts speech clarity)",
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "player_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "set_night_sound_and_speech_enhancement",
+    "title" : "Set night sound and speech enhancement"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Play a track"
+    },
+    "description" : "Play a track on a Sonos group.",
+    "inputSchema" : {
+      "properties" : {
+        "album" : {
+          "description" : "The canonical album name, to disambiguate",
+          "type" : "string"
+        },
+        "artist" : {
+          "description" : "The canonical artist name, to disambiguate",
+          "type" : "string"
+        },
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "music_service" : {
+          "description" : "The music service to play from, when the user explicitly names one; omit otherwise.",
+          "enum" : [
+            "Amazon Music",
+            "Apple Music",
+            "Deezer",
+            "Pandora",
+            "Radio France",
+            "Sonos Radio",
+            "Spotify"
+          ],
+          "type" : "string"
+        },
+        "track" : {
+          "description" : "The canonical track name",
+          "minLength" : 1,
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id",
+        "track"
+      ],
+      "type" : "object"
+    },
+    "name" : "play_track",
+    "title" : "Play a track"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Play an album"
+    },
+    "description" : "Play an album on a Sonos group.",
+    "inputSchema" : {
+      "properties" : {
+        "album" : {
+          "description" : "The canonical album name",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "artist" : {
+          "description" : "The canonical artist name, to disambiguate",
+          "type" : "string"
+        },
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "music_service" : {
+          "description" : "The music service to play from, when the user explicitly names one; omit otherwise.",
+          "enum" : [
+            "Amazon Music",
+            "Apple Music",
+            "Deezer",
+            "Pandora",
+            "Radio France",
+            "Sonos Radio",
+            "Spotify"
+          ],
+          "type" : "string"
+        },
+        "shuffle" : {
+          "description" : "Set true only when the user clearly asks to shuffle; otherwise false (play in order). Sets the same state as set_shuffle_repeat_crossfade — no separate call needed.",
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "group_id",
+        "album",
+        "shuffle"
+      ],
+      "type" : "object"
+    },
+    "name" : "play_album",
+    "title" : "Play an album"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Play an artist"
+    },
+    "description" : "Play a mix of music from an artist on a Sonos group.",
+    "inputSchema" : {
+      "properties" : {
+        "artist" : {
+          "description" : "The canonical artist name",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "music_service" : {
+          "description" : "The music service to play from, when the user explicitly names one; omit otherwise.",
+          "enum" : [
+            "Amazon Music",
+            "Apple Music",
+            "Deezer",
+            "Pandora",
+            "Radio France",
+            "Sonos Radio",
+            "Spotify"
+          ],
+          "type" : "string"
+        },
+        "shuffle" : {
+          "description" : "Set true only when the user clearly asks to shuffle; otherwise false (play in order). Sets the same state as set_shuffle_repeat_crossfade — no separate call needed.",
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "group_id",
+        "artist",
+        "shuffle"
+      ],
+      "type" : "object"
+    },
+    "name" : "play_artist",
+    "title" : "Play an artist"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Play a playlist"
+    },
+    "description" : "Play a playlist from a music service on a Sonos group. For Sonos playlists, use play_sonos_playlist instead.",
+    "inputSchema" : {
+      "properties" : {
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "music_service" : {
+          "description" : "The music service to play from, when the user explicitly names one; omit otherwise.",
+          "enum" : [
+            "Amazon Music",
+            "Apple Music",
+            "Deezer",
+            "Pandora",
+            "Radio France",
+            "Sonos Radio",
+            "Spotify"
+          ],
+          "type" : "string"
+        },
+        "personal" : {
+          "description" : "Set true only when the user is clear about an intent to play a personally-authored playlist on the music service: this matches personal playlists only. Otherwise, leave unset: matching is lenient and includes personal playlists alongside curated or branded ones.",
+          "type" : "boolean"
+        },
+        "playlist" : {
+          "description" : "The canonical playlist name",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "shuffle" : {
+          "description" : "Set true only when the user clearly asks to shuffle; otherwise false (play in order). Sets the same state as set_shuffle_repeat_crossfade — no separate call needed.",
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "group_id",
+        "playlist",
+        "shuffle"
+      ],
+      "type" : "object"
+    },
+    "name" : "play_playlist",
+    "title" : "Play a playlist"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Play a radio station"
+    },
+    "description" : "Play a live broadcast radio station on a Sonos group — a specific, named station the user tunes into, heard as a single continuous stream everyone gets in sync and can't skip. Covers over-the-air and internet broadcasts (BBC Radio 1, NPR, KEXP, 98.5 FM), streaming-native broadcast channels (Apple Music 1, Apple Music Hits), and hosted Sonos Radio shows ('Sunset Fuzz', 'Nashville Now'). Identify it by station or show name, call sign, or frequency — pass at least one of radio_name, call_sign, or frequency; add location only to disambiguate same-named stations. Use play_station instead for an endless station generated from a seed rather than identified by name.",
+    "inputSchema" : {
+      "properties" : {
+        "call_sign" : {
+          "description" : "The station's call sign (e.g. 'WBUR', 'KEXP')",
+          "type" : "string"
+        },
+        "frequency" : {
+          "description" : "The station's broadcast frequency (e.g. '98.5')",
+          "type" : "string"
+        },
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "location" : {
+          "description" : "The station's location, to disambiguate same-named stations. Pass only when the user explicitly states one; never guess or infer it.",
+          "type" : "string"
+        },
+        "music_service" : {
+          "description" : "The music service to play from. Defaults to Sonos Radio if omitted — it has the broadest catalog of broadcast stations and is the only place Sonos Radio's own signature shows exist. Set this only when the user explicitly names a different service, or you're confident the station or show is natively hosted there (e.g. 'Apple Music 1' on Apple Music).",
+          "enum" : [
+            "Amazon Music",
+            "Apple Music",
+            "Deezer",
+            "Pandora",
+            "Radio France",
+            "Sonos Radio",
+            "Spotify"
+          ],
+          "type" : "string"
+        },
+        "radio_name" : {
+          "description" : "The canonical station or show name (e.g. 'BBC Radio 1', 'Apple Music 1', 'Sunset Fuzz')",
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "play_radio",
+    "title" : "Play a radio station"
+  },
+  {
+    "annotations" : {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : false,
+      "title" : "Play a programmed station"
+    },
+    "description" : "Play a personalized, endless station generated from a seed on a Sonos group — something a music service turns into an algorithmic run of tracks (e.g. 'Daft Punk Radio', 'jazz station', 'a chill station', 'Bohemian Rhapsody radio'). Seed it with exactly one of station_name, artist, or track (whichever the user names). Use play_radio instead for a live broadcast station or a hosted Sonos Radio show ('Sunset Fuzz', 'Nashville Now') identified by name rather than generated from a seed.",
+    "inputSchema" : {
+      "properties" : {
+        "artist" : {
+          "description" : "The artist name, when the station is seeded by a specific artist — e.g. pass 'Daft Punk' when the user says 'Daft Punk Radio'. Prefer this over station_name — it reaches native artist-radio features.",
+          "type" : "string"
+        },
+        "group_id" : {
+          "description" : "The Sonos group ID",
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "music_service" : {
+          "description" : "The music service to play from, when the user explicitly names one; omit otherwise.",
+          "enum" : [
+            "Amazon Music",
+            "Apple Music",
+            "Deezer",
+            "Pandora",
+            "Radio France",
+            "Sonos Radio",
+            "Spotify"
+          ],
+          "type" : "string"
+        },
+        "station_name" : {
+          "description" : "The genre or mood seed for the station (e.g. 'jazz', 'a chill station'), when the station isn't seeded by a specific artist or track. Use artist or track instead when the user names one.",
+          "type" : "string"
+        },
+        "track" : {
+          "description" : "The track name, when the station is seeded by a specific track — e.g. pass 'Bohemian Rhapsody' when the user says 'Bohemian Rhapsody Radio'. Prefer this over station_name — it reaches native track-radio features.",
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "group_id"
+      ],
+      "type" : "object"
+    },
+    "name" : "play_station",
+    "title" : "Play a programmed station"
+  }
+]

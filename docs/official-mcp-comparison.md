@@ -1,6 +1,6 @@
 # Comparative Analysis: homectl-sonos vs. Official Sonos 27mcp
 
-A detailed comparison between **SonosFlow's local MCP engine (`homectl-sonos`)** and Sonos's newly released **official hosted MCP server (`Sonos 27mcp`)**, with architectural insights and recommended enhancements.
+A detailed comparison between **SonosFlow's local MCP engine (`homectl-sonos`)** and Sonos's newly released **official hosted MCP server (`Sonos 27mcp`)**, with architectural insights, full tool directory, and recommended enhancements.
 
 ---
 
@@ -15,9 +15,9 @@ A detailed comparison between **SonosFlow's local MCP engine (`homectl-sonos`)**
 
 On September 7, 2026, Sonos launched early access for **Sonos 27mcp** ([support article](https://support.sonos.com/en-us/article/control-your-sonos-system-with-ai-using-sonos-27mcp) & [tech blog](https://tech-blog.sonos.com/posts/sonos-27mcp/)), providing a hosted remote Model Context Protocol endpoint at `https://mcp.ws.sonos.com/mcp`.
 
-While **Sonos 27mcp** focuses on cloud-mediated, multi-system natural language voice control across streaming catalogs, **`homectl-sonos`** provides deterministic, ultra-low-latency, zero-cloud control over local network hardware, physical queues, and stereo pairs.
+Using our automated exploration spike (`SonosOfficialMCPSpike`), we completed dynamic registration, authenticated via OAuth 2.1 PKCE, and retrieved the **full 34-tool catalog** directly from Sonos's production cloud endpoint, benchmarking a live round-trip latency of **219ms** (vs. **<10ms** for local `homectl-sonos`).
 
-Both approaches are complementary. Below is an architectural side-by-side analysis, protocol evaluation, and a roadmap for incorporating both options into SonosFlow.
+While **Sonos 27mcp** excels at cloud music catalog search and voice-style commands across streaming providers, **`homectl-sonos`** remains uniquely capable for deterministic local control, physical queue manipulation (`Q:0`), offline reliability, and privacy.
 
 ---
 
@@ -29,10 +29,10 @@ Both approaches are complementary. Below is an architectural side-by-side analys
 | **Transport Protocol** | `stdio` JSON-RPC 2.0 (Local process pipes) | Streamable HTTP / Server-Sent Events (SSE) over TLS |
 | **Network Path** | Client ──*(stdio)*──> `mcp-sonos` ──*(LAN UPnP)*──> Speaker | Client ──*(HTTPS/WAN)*──> Sonos Cloud ──*(Broker)*──> Speaker |
 | **Authentication** | **Zero Friction**: No accounts, tokens, or logins required. Discovers speakers on local subnet. | **OAuth 2.1 with PKCE & RFC 7591 Dynamic Registration**. Requires browser sign-in with Sonos account credentials. |
-| **Roundtrip Latency** | **< 10ms** (Instant IPC and local Wi-Fi dispatch). | **150ms – 600ms+** (Transits public internet and cloud relay). |
+| **Roundtrip Latency** | **< 10ms** (Instant IPC and local Wi-Fi dispatch). | **~220ms – 600ms** (Transits public internet and cloud relay). |
 | **Offline Reliability** | **100% Offline Capable**. Works during WAN/ISP outages or on air-gapped IoT subnets. | **Requires active internet connectivity**. If `play.sonos.com` or WAN drops, control stops. |
-| **Tool Inventory** | **12 Tools** (Focused on physical device state & queue). | **34 Tools** (Broad cloud capabilities & voice intents). |
-| **Queue Management** | **Direct 1-based queue manipulation (`Q:0`)**: reorder ranges, delete tracks, inspect pagination, resolved artwork. | Cloud playback session abstraction. Queue is managed via cloud playlist and container entities. |
+| **Tool Count** | **12 Tools** (Focused on physical device state & queue). | **34 Tools** (Broad cloud capabilities & voice intents). |
+| **Queue Management** | **Direct 1-based queue manipulation (`Q:0`)**: reorder ranges, delete tracks, multi-page pagination, resolved artwork. | **Zero Queue Tools**. Does not support queue browsing, track reordering, or individual track deletion. |
 | **Album Artwork** | Local UPnP port `1400` paths (`/getaa?...`) + streaming CDN URLs, cached locally in SHA-256 store. | Cloud image URLs delivered through cloud content catalog. |
 | **Hardware Settings** | Master & per-speaker volume sliders for stereo pairs and groups. | Night Sound, Speech Enhancement, Subwoofer gain, Line-In source switching. |
 | **Cross-System Scope** | Local network household (all speakers sharing the subnet). | Can control multiple households (e.g. Primary home and Vacation home) from one interface. |
@@ -40,58 +40,80 @@ Both approaches are complementary. Below is an architectural side-by-side analys
 
 ---
 
-## 2. Protocol & Auth Deep Dive (Sonos 27mcp)
+## 2. Complete Official Tool Directory (34 Tools Discovered)
 
-Our exploration spike (`SonosOfficialMCPSpike`) probed the official endpoints:
-- **Issuer**: `https://mcp.ws.sonos.com`
-- **MCP Endpoint**: `https://mcp.ws.sonos.com/mcp`
-- **Discovery**: `https://mcp.ws.sonos.com/.well-known/oauth-authorization-server`
-- **Protected Resource**: `https://mcp.ws.sonos.com/.well-known/oauth-protected-resource`
+Captured live from `https://mcp.ws.sonos.com/mcp` and saved in `docs/official-mcp-tools.json`:
 
-### Key Protocol Insights
-1. **RFC 7591 Dynamic Client Registration**:
-   Sonos 27mcp does not require pre-registering a client ID in a developer portal. Any client can POST to `/mcp-oauth/register` with `client_name` and `redirect_uris` to dynamically provision a `client_id`.
-2. **PKCE (RFC 7636)**:
-   Mandates `code_challenge_method: "S256"` with browser consent.
-3. **Scopes**:
-   - `playback-control-all`: Core volume, transport, and grouping operations.
-   - `partner-content:read`: Access to linked music services (Apple Music, Spotify, Amazon Music).
+### A. System Discovery & Topology
+- **`get_households_and_groups_and_players`**: Discovers all households, groups (with playback state), and players with capabilities.
+
+### B. Playback State & Modes
+- **`get_now_playing`**: Returns current playing track/stream and the single next track if available.
+- **`get_shuffle_repeat_crossfade`**: Returns booleans for `shuffle`, `repeat`, `repeatOne`, and `crossfade`.
+- **`set_shuffle_repeat_crossfade`**: Modifies `crossfade`, `repeat`, `repeat_one`, and `shuffle` settings.
+
+### C. Basic Transport Controls
+- **`resume`**: Unpauses and continues playback on a group.
+- **`pause`**: Pauses playback on a group.
+- **`skip_to_next_track`**: Skips to the next track.
+- **`skip_to_previous_track`**: Returns to the previous track.
+- **`seek`**: Seeks to a time offset (`position_millis` or `delta_millis`).
+
+### D. Volume & Mute (Two-Tier Granularity)
+- **Individual Players**:
+  - `get_player_volume`, `set_player_volume`, `set_player_mute`, `adjust_player_volume`
+- **Group Master**:
+  - `get_group_volume`, `set_group_volume`, `set_group_mute`, `adjust_group_volume`
+
+### E. Favorites, Playlists & Line-In
+- **`get_sonos_favorites`**: Lists pinned household favorites.
+- **`get_sonos_playlists`**: Lists Sonos playlists saved to the household.
+- **`play_sonos_playlist`**: Plays a Sonos playlist with optional shuffle.
+- **`play_sonos_favorite`**: Plays a pinned favorite with optional shuffle.
+- **`play_player_line_in`**: Plays analog line-in audio from a player on a target group.
+- **`get_registered_music_services`**: Lists connected streaming services for a household.
+
+### F. Dynamic Grouping & Audio Handoff
+- **`add_players_to_group`**: Adds players to an existing group.
+- **`remove_players_from_group`**: Removes players from a group.
+- **`move_audio_to_players`**: Atomically moves currently playing audio from a source group to new destination players.
+
+### G. Home Theater EQ Settings
+- **`get_night_sound_and_speech_enhancement`**: Queries soundbar Night Sound and Speech Enhancement.
+- **`set_night_sound_and_speech_enhancement`**: Toggles `night_sound` and `speech_enhancement` booleans.
+
+### H. Cloud Music Search & Playback (Streaming Services)
+- **`play_track`**: Searches and plays a specific track by name across streaming services.
+- **`play_album`**: Plays a specific album with optional shuffle.
+- **`play_artist`**: Plays a mix of an artist across music services.
+- **`play_playlist`**: Plays a streaming service playlist.
+- **`play_radio`**: Tunes into a live broadcast radio station by name, call sign, or frequency.
+- **`play_station`**: Plays a personalized endless station generated from a seed artist or track.
 
 ---
 
-## 3. Insights & Lessons Learned for `homectl` & `SonosFlow`
+## 3. Major Architectural Findings & Insights
 
-Examining the capabilities of Sonos 27mcp reveals several high-value enhancement opportunities for our local stack:
+### 1. The Official Server Has ZERO Queue Capabilities
+- The word **"queue" does not appear anywhere in the official schema**.
+- Sonos 27mcp has **no tools to inspect the queue, reorder tracks, delete songs, or jump to track positions**. It only exposes `get_now_playing` (which returns what's playing and the single next track).
+- **Takeaway**: `SonosFlow`'s interactive 188-track queue manager, drag-and-drop reordering, and hover deletion are **only possible via our local `homectl-sonos` engine**. The official cloud server was designed exclusively for conversational AI queries (*"Play some Beatles in the kitchen"*), not for visual playback queues.
 
-### A. Home Theater EQ Controls (Night Sound & Speech Enhancement)
-- **Official Capability**: Sonos 27mcp allows toggling *Night Sound* (compressing dynamic range for late-night viewing) and *Speech Enhancement* (boosting dialog frequencies) on soundbars (Arc, Beam, Ray).
-- **Local Feasibility**: In local UPnP, Sonos soundbars expose these controls via `RenderingControl:1#GetEQ` and `SetEQ` with `EQType: "NightMode"` and `"DialogLevel"`.
-- **Enhancement**:
-  - Add `sonos_set_home_theater_eq` tool to `homectl`.
-  - In `SonosFlow`, display Speech Enhancement and Night Sound toggle buttons in the hero card when an Arc or Beam is active.
-
-### B. Shuffle & Repeat Mode Control
-- **Official Capability**: Full control over shuffle and repeat modes.
-- **Local Feasibility**: Exposed locally via `AVTransport:1#SetPlayMode` with modes `NORMAL`, `SHUFFLE_NOREPEAT`, `SHUFFLE`, `REPEAT_ALL`, `REPEAT_ONE`.
-- **Enhancement**:
-  - Add `shuffle` and `repeat` flags to `sonos_control` in `homectl`.
-  - Add shuffle and repeat icons in `TransportBarView.swift` and `MiniPlayerView.swift`.
-
-### C. Dynamic Grouping & Party Mode ("Group Everywhere")
-- **Official Capability**: Move audio between rooms, group products, or ungroup speakers with one request.
-- **Local Feasibility**: Already tracked in `homectl` issue `control-333: Epic: Sonos Dynamic Zone Grouping & Party Mode`.
-- **Enhancement**:
-  - Once `control-333` is implemented in `homectl`, wire a "Party Mode" button in `SonosFlow`'s sidebar header to instantly sync all rooms.
-
-### D. Multi-Household Support
-- **Official Capability**: Allows selecting between multiple Sonos households linked to one user account.
-- **Local Feasibility**: `SonosFlow` currently discovers all speakers on the active Wi-Fi subnet. In Settings, we can allow managing multiple household profiles or manual IP subnets.
+### 2. What `Sonos 27mcp` Excels At (And What We Can Learn):
+- **Cross-Service Music Catalog Search** (`play_track`, `play_album`, `play_artist`):
+  Resolves natural-language artist and track queries against Spotify, Apple Music, and Amazon Music.
+- **Home Theater Enhancements** (`get_night_sound_and_speech_enhancement`, `set_night_sound_and_speech_enhancement`):
+  Controls soundbar Night Sound and Speech Enhancement.
+- **Playback Modes** (`get_shuffle_repeat_crossfade`, `set_shuffle_repeat_crossfade`):
+  Exposes `crossfade`, `repeat`, `repeat_one`, and `shuffle` as distinct booleans.
+- **Audio Handoff** (`move_audio_to_players`):
+  Allows seamless audio transfer between rooms.
 
 ---
 
-## 4. Feasibility Blueprint: Dual-Engine Control in SonosFlow
+## 4. Feasibility: Dual-Engine Control in SonosFlow
 
-Integrating Sonos 27mcp as an alternative control backend in `SonosFlow` is **fully feasible** and creates a best-of-both-worlds user experience:
+Integrating Sonos 27mcp as an alternative control backend in `SonosFlow` is **fully feasible** and creates an attractive user choice:
 
 ```
                        ┌──────────────────────────────┐
@@ -129,7 +151,7 @@ Integrating Sonos 27mcp as an alternative control backend in `SonosFlow` is **fu
 
 ## 5. Summary & Recommendation
 
-- **Keep `homectl-sonos` as the Primary Driver**: For a desktop music controller, local LAN communication is vastly superior in responsiveness (<10ms vs. ~500ms), privacy, offline reliability, and deterministic queue manipulation.
+- **Keep `homectl-sonos` as the Primary Driver**: For a desktop music controller, local LAN communication is vastly superior in responsiveness (<10ms vs. ~220ms), privacy, offline reliability, and deterministic queue manipulation.
 - **Port Useful Features from the Official Server to `homectl`**:
   - Home Theater EQ (Night Sound / Speech Enhancement).
   - Shuffle and Repeat modes.

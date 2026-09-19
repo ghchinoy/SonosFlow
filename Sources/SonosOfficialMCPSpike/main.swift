@@ -360,7 +360,45 @@ struct SonosOfficialMCPSpike {
                 let name = t["name"] as? String ?? "unknown"
                 let desc = t["description"] as? String ?? "No description"
                 let shortDesc = desc.replacingOccurrences(of: "\n", with: " ").prefix(80)
-                print(String(format: " [%02d] %-34s - %@", idx + 1, name, String(shortDesc)))
+                let paddedName = name.padding(toLength: 36, withPad: " ", startingAt: 0)
+                let paddedIdx = String(format: "%02d", idx + 1)
+                print(" [\(paddedIdx)] \(paddedName) - \(shortDesc)")
+            }
+
+            // 7. Live Query Benchmark: get_households_and_groups_and_players
+            print("\n7️⃣  Executing live cloud query (get_households_and_groups_and_players)...")
+            var queryReq = URLRequest(url: URL(string: mcpEndpoint)!)
+            queryReq.httpMethod = "POST"
+            queryReq.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+            queryReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            queryReq.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+
+            let queryPayload: [String: Any] = [
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": [
+                    "name": "get_households_and_groups_and_players",
+                    "arguments": [:] as [String: Any]
+                ]
+            ]
+            queryReq.httpBody = try JSONSerialization.data(withJSONObject: queryPayload)
+
+            let tQuery = Date()
+            let (queryData, queryResp) = try await URLSession.shared.data(for: queryReq)
+            let queryLatency = Date().timeIntervalSince(tQuery)
+
+            let queryJSON = try parseMCPResponse(data: queryData, response: queryResp)
+            print("✅ Live cloud call succeeded in \(Int(queryLatency * 1000))ms round-trip!")
+            if let res = queryJSON["result"] as? [String: Any] {
+                if let structured = res["structuredContent"] as? [String: Any] {
+                    let pretty = try? JSONSerialization.data(withJSONObject: structured, options: .prettyPrinted)
+                    let str = String(data: pretty ?? Data(), encoding: .utf8) ?? ""
+                    print("   Returned Cloud Topology Structure (first 500 chars):")
+                    print("   " + str.prefix(500).replacingOccurrences(of: "\n", with: "\n   "))
+                } else if let content = res["content"] as? [[String: Any]], let first = content.first, let text = first["text"] as? String {
+                    print("   Returned Summary: \(text.prefix(300))")
+                }
             }
 
             print("\n🎉 Official Sonos 27mcp exploration complete!")
