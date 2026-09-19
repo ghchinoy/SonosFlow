@@ -6,7 +6,7 @@ import starlightImageZoom from 'starlight-image-zoom';
 
 export default defineConfig({
   site: 'https://ghchinoy.github.io',
-  base: '/sonosflow',
+  base: '/SonosFlow',
   integrations: [
     starlight({
       title: 'SonosFlow',
