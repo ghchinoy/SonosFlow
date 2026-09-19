@@ -1,15 +1,16 @@
-.PHONY: all build run run-cli spike test app docs-install docs-dev docs-build docs-preview clean help
+.PHONY: all build run run-cli spike official-spike test app docs-install docs-dev docs-build docs-preview clean help
 
 all: build
 
 help:
 	@echo "SonosFlow - Standalone macOS Sonos Controller"
 	@echo "Available make targets:"
-	@echo "  make run          - Fast build & launch SonosFlow.app"
-	@echo "  make run-cli      - Launch directly in Terminal via swift run"
-	@echo "  make build        - Compile debug binaries"
-	@echo "  make spike        - Run the Sonos MCP verification spike"
-	@echo "  make test         - Run automated unit test suite"
+	@echo "  make run            - Fast build & launch SonosFlow.app"
+	@echo "  make run-cli        - Launch directly in Terminal via swift run"
+	@echo "  make build          - Compile debug binaries"
+	@echo "  make spike          - Run local homectl Sonos MCP spike"
+	@echo "  make official-spike - Run official hosted Sonos 27mcp spike"
+	@echo "  make test           - Run automated unit test suite"
 	@echo "  make app          - Build optimized release SonosFlow.app bundle"
 	@echo "  make docs-install - Install Astro Starlight docs dependencies"
 	@echo "  make docs-dev     - Run local Starlight documentation server"
@@ -38,6 +39,11 @@ spike:
 	@echo "🎵 Running Sonos MCP Spike..."
 	@mkdir -p .cache/clang .cache/tmp
 	@swift run $(SWIFT_FLAGS) SonosFlowSpike
+
+official-spike:
+	@echo "🌐 Running Official Sonos 27mcp Spike..."
+	@mkdir -p .cache/clang .cache/tmp
+	@swift run $(SWIFT_FLAGS) SonosOfficialMCPSpike
 
 test:
 	@echo "🧪 Running unit tests..."

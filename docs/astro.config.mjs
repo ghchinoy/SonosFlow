@@ -51,6 +51,7 @@ export default defineConfig({
             { label: 'System Architecture', slug: 'architecture/overview' },
             { label: 'Direct MCP Integration', slug: 'architecture/mcp-protocol' },
             { label: 'Two-Tier Artwork Caching', slug: 'architecture/caching' },
+            { label: 'Official Sonos 27mcp Comparison', slug: 'architecture/official-mcp-comparison' },
           ],
         },
         {

@@ -10,6 +10,7 @@ let package = Package(
     ],
     products: [
         .executable(name: "SonosFlowSpike", targets: ["SonosFlowSpike"]),
+        .executable(name: "SonosOfficialMCPSpike", targets: ["SonosOfficialMCPSpike"]),
         .executable(name: "SonosFlow", targets: ["SonosFlow"]),
         .library(name: "SonosFlowKit", targets: ["SonosFlowKit"])
     ],
@@ -23,6 +24,11 @@ let package = Package(
             name: "SonosFlowSpike",
             dependencies: ["SonosFlowKit"],
             path: "Sources/SonosFlowSpike"
+        ),
+        .executableTarget(
+            name: "SonosOfficialMCPSpike",
+            dependencies: ["SonosFlowKit"],
+            path: "Sources/SonosOfficialMCPSpike"
         ),
         .executableTarget(
             name: "SonosFlow",
