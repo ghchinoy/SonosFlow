@@ -8,15 +8,14 @@ title: System Architecture
 description: Overview of SonosFlow's dual-engine Swift package architecture, concurrency model, and protocol abstraction.
 ---
 
-import { Image } from 'astro:assets';
-import archDiagram from '../../../assets/diagrams/architecture.webp';
-
 SonosFlow is designed around Swift 5.9+ modern structured concurrency, modular library separation, and clean unidirectional data flow across two interchangeable Model Context Protocol (MCP) engines.
 
 ## Architectural Layers
 
 <div align="center">
-  <Image src={archDiagram} alt="SonosFlow Dual-Engine System Architecture Diagram" width={780} />
+
+![SonosFlow Dual-Engine System Architecture Diagram](../../../assets/diagrams/architecture.webp)
+
 </div>
 
 ## Core Architecture & Domain Modules
