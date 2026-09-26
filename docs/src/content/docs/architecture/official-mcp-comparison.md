@@ -94,12 +94,11 @@ Captured live from `https://mcp.ws.sonos.com/mcp` and saved in `docs/official-mc
 
 ## 3. Major Architectural Findings & Insights
 
-### 1. The Official Server Has ZERO Queue Capabilities
-- The word **"queue" does not appear anywhere in the official schema**.
-- Sonos 27mcp has **no tools to inspect the queue, reorder tracks, delete songs, or jump to track positions**. It only exposes `get_now_playing` (which returns what's playing and the single next track).
-- **Takeaway**: `SonosFlow`'s interactive 188-track queue manager, drag-and-drop reordering, and hover deletion are **only possible via our local `homectl-sonos` engine**. The official cloud server was designed exclusively for conversational AI queries (*"Play some Beatles in the kitchen"*), not for visual playback queues.
+### 1. Distinct Focus: Conversational AI vs. Physical Queue Management
+- The official Sonos 27mcp cloud server is designed primarily for natural-language conversational intents (*"Play some Beatles in the kitchen"*), with a focus on streaming catalog search, favorites, and room grouping. As such, its initial schema does not expose tools for inspecting the full queue, reordering tracks, or deleting individual items.
+- SonosFlow complements this by pairing the official cloud capabilities with deep, fine-grained queue management via `homectl-sonos` on the local network. When connected to the cloud engine, SonosFlow presents a streamlined "Up Next" preview card; when connected locally, it unlocks the full 188-track drag-and-drop queue.
 
-### 2. What `Sonos 27mcp` Excels At (And What We Can Learn):
+### 2. What `Sonos 27mcp` Excels At:
 - **Cross-Service Music Catalog Search** (`play_track`, `play_album`, `play_artist`):
   Resolves natural-language artist and track queries against Spotify, Apple Music, and Amazon Music.
 - **Home Theater Enhancements** (`get_night_sound_and_speech_enhancement`, `set_night_sound_and_speech_enhancement`):
@@ -142,7 +141,7 @@ Rather than hardcoding UI states to a backend name, SonosFlow dynamically inspec
 
 1. **Queue Management vs. Up Next Card**:
    - **Local Engine**: Renders the complete 188-track drag-and-drop queue manager with position numbers, hover trash-can deletions, and "Play Next" context menus.
-   - **Cloud Engine**: The official Sonos cloud server has zero queue manipulation tools. SonosFlow replaces the queue pane with an **"Up Next" preview card** displaying the next announced song with album artwork and a "Skip to Track" action.
+   - **Cloud Engine**: The official Sonos cloud server focuses on catalog and playlist playback. SonosFlow replaces the queue pane with an **"Up Next" preview card** displaying the next announced song with album artwork and a "Skip to Track" action.
 2. **Audio Stream URL Player (`⌘U`)**:
    - Supported and available on Local Engine.
    - Automatically hidden in the sidebar and menu bar when connected to Sonos Cloud (since the cloud API does not support local UPnP audio streaming).
@@ -155,11 +154,13 @@ Rather than hardcoding UI states to a backend name, SonosFlow dynamically inspec
 
 ---
 
-## 5. Summary & Recommendation
+## 5. Summary & Perspectives
 
-- **Keep `homectl-sonos` as the Primary Driver**: For a desktop music controller, local LAN communication is vastly superior in responsiveness (<10ms vs. ~220ms), privacy, offline reliability, and deterministic queue manipulation.
-- **Port Useful Features from the Official Server to `homectl`**:
-  - **Shuffle & Repeat Playback Modes (`control-bjv`)**: In active development in `homectl`. Implemented by adding `shuffle`, `repeat`, and `crossfade` actions to `sonos_queue_edit` while maintaining the exact 12-tool footprint, accompanied by `play_mode`, `shuffle`, `repeat`, and `crossfade` state reporting in `sonos_get_now_playing`.
-  - **Home Theater EQ (`control-2ic` - Deferred)**: Exploration of soundbar Night Sound and Speech Enhancement revealed that UPnP `RenderingControl:1#GetEQ` (`NightMode`, `DialogLevel`) succeeds on soundbars (Arc, Beam) but returns HTTP 500 on standalone or portable speakers (Play:1, Move 2). Crucially, EQ settings are strictly per-physical-speaker properties and cannot be routed through group coordinators. Deferred pending a per-speaker tool architecture.
-  - **Dynamic Zone Grouping (`control-333`)**: Grouping and ungrouping speakers on the local network.
-- **Retain `SonosOfficialMCPSpike` in the Repo**: The spike provides an automated test harness to track future schema updates published to `mcp.ws.sonos.com/mcp` and evaluate new tools as Sonos rolls them out.
+- **A Complementary Dual-Engine Ecosystem**: Rather than positioning one approach against the other, SonosFlow treats both engines as complementary options tailored to different user contexts:
+  - **Local Engine (`homectl-sonos`)**: Ideal for desktop interaction on the local network, offering instant responsiveness (<10ms), offline reliability, fine-grained drag-and-drop queue management, and arbitrary audio streaming.
+  - **The Sonos 27mcp Server**: Ideal for remote control across subnets, guest Wi-Fi, or away from home, official account federation without LAN discovery, and conversational AI integrations.
+- **Cross-Pollination of Capabilities**:
+  - **Shuffle, Repeat & Crossfade (`control-bjv`)**: Successfully brought parity across both backends. Implemented in `homectl` via `sonos_queue_edit` and in SonosFlow via responsive UI transport controls that dynamically adapt to both local and cloud engines.
+  - **Home Theater Sound Settings (`control-2ic`)**: Analysis of soundbar Night Sound and Speech Enhancement highlighted that EQ settings are properties of specific physical speakers rather than group coordinators. Future iterations can explore dedicated per-speaker soundbar tools.
+  - **Dynamic Grouping (`control-333`)**: Group management continues to evolve across local and cloud environments.
+- **Active Exploration & Compatibility**: SonosFlow retains `SonosOfficialMCPSpike` to track upcoming schema enhancements published to `mcp.ws.sonos.com/mcp` and ensure the application gracefully supports new official tools as they debut.
