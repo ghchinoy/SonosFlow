@@ -1,6 +1,9 @@
-.PHONY: all build run run-cli spike official-spike test app docs-install docs-dev docs-build docs-preview clean help
+.PHONY: all build run run-cli spike official-spike test app install uninstall docs-install docs-dev docs-build docs-preview clean help
 
 all: build
+
+INSTALL_DIR ?= $(HOME)/Applications
+LSREGISTER ?= /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 help:
 	@echo "SonosFlow - Standalone macOS Sonos Controller"
@@ -12,6 +15,8 @@ help:
 	@echo "  make official-spike - Run official hosted Sonos 27mcp spike"
 	@echo "  make test           - Run automated unit test suite"
 	@echo "  make app          - Build optimized release SonosFlow.app bundle"
+	@echo "  make install      - Install release bundle to ~/Applications (or INSTALL_DIR=...)"
+	@echo "  make uninstall    - Remove bundle from ~/Applications"
 	@echo "  make docs-install - Install Astro Starlight docs dependencies"
 	@echo "  make docs-dev     - Run local Starlight documentation server"
 	@echo "  make docs-build   - Build static production documentation site"
@@ -52,6 +57,31 @@ test:
 
 app:
 	@./scripts/build_app.sh --release
+
+install: app
+	@echo "📦 Installing SonosFlow.app to $(INSTALL_DIR)..."
+	@osascript -e 'quit app "SonosFlow"' 2>/dev/null || true
+	@mkdir -p "$(INSTALL_DIR)"
+	@rm -rf "$(INSTALL_DIR)/SonosFlow.app"
+	@ditto SonosFlow.app "$(INSTALL_DIR)/SonosFlow.app"
+	@codesign --force --deep --sign - "$(INSTALL_DIR)/SonosFlow.app" 2>/dev/null || true
+	@if [ -x "$(LSREGISTER)" ]; then \
+		"$(LSREGISTER)" -f "$(INSTALL_DIR)/SonosFlow.app"; \
+	fi
+	@echo "✅ Successfully installed to $(INSTALL_DIR)/SonosFlow.app"
+	@echo "   Run: open $(INSTALL_DIR)/SonosFlow.app"
+
+uninstall:
+	@echo "🗑️  Uninstalling SonosFlow.app from $(INSTALL_DIR)..."
+	@osascript -e 'quit app "SonosFlow"' 2>/dev/null || true
+	@if [ -x "$(LSREGISTER)" ] && [ -d "$(INSTALL_DIR)/SonosFlow.app" ]; then \
+		"$(LSREGISTER)" -u "$(INSTALL_DIR)/SonosFlow.app" 2>/dev/null || true; \
+	fi
+	@rm -rf "$(INSTALL_DIR)/SonosFlow.app"
+	@echo "✅ Removed $(INSTALL_DIR)/SonosFlow.app"
+	@echo "ℹ️  User settings, Keychain tokens, and artwork cache were preserved."
+	@echo "   To remove settings: defaults delete com.sonosflow.app"
+	@echo "   To remove artwork cache: rm -rf ~/Library/Caches/com.sonosflow.app"
 
 docs-install:
 	@echo "📦 Installing Starlight documentation dependencies..."

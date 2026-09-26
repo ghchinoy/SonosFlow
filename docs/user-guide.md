@@ -1,6 +1,6 @@
 # SonosFlow User Guide
 
-This guide covers the operation, architecture, and feature workflows of **SonosFlow**, a native macOS Sonos controller powered by the [`homectl`](https://ghchinoy.github.io/homectl/) Model Context Protocol (MCP) server over local stdio JSON-RPC.
+This guide covers the operation, architecture, and feature workflows of **SonosFlow**, a native macOS Sonos controller powered by the local [`homectl`](https://ghchinoy.github.io/homectl/) Model Context Protocol (MCP) server or the official hosted **Sonos 27mcp server**.
 
 ---
 
@@ -15,63 +15,31 @@ This guide covers the operation, architecture, and feature workflows of **SonosF
 
 1. [Overview & Architecture](#1-overview--architecture)
 2. [Prerequisites & Initial Setup](#2-prerequisites--initial-setup)
-3. [Speaker Discovery & Multi-Room Groups](#3-speaker-discovery--multi-room-groups)
-4. [Interactive Queue Management](#4-interactive-queue-management)
-5. [Queue Filtering & Search Clarity](#5-queue-filtering--search-clarity)
-6. [Title Bar Proxy Icon & Drag-to-Export](#6-title-bar-proxy-icon--drag-to-export)
-7. [Mode A Floating MiniPlayer](#7-mode-a-floating-miniplayer)
-8. [Menu Bar Extra Companion](#8-menu-bar-extra-companion)
-9. [Audio Stream Player & Radio Presets](#9-audio-stream-player--radio-presets)
-10. [Volume Balancing & Individual Speaker Sliders](#10-volume-balancing--individual-speaker-sliders)
-11. [Hardware Media Keys & macOS Control Center](#11-hardware-media-keys--macos-control-center)
-12. [Hot-Reloading the MCP Server](#12-hot-reloading-the-mcp-server)
-13. [Diagnostics & Troubleshooting](#13-diagnostics--troubleshooting)
+3. [Installing to Applications Folder](#3-installing-to-applications-folder)
+4. [Speaker Discovery & Multi-Room Groups](#4-speaker-discovery--multi-room-groups)
+5. [Interactive Queue Management](#5-interactive-queue-management)
+6. [Queue Filtering & Search Clarity](#6-queue-filtering--search-clarity)
+7. [Title Bar Proxy Icon & Drag-to-Export](#7-title-bar-proxy-icon--drag-to-export)
+8. [Mode A Floating MiniPlayer](#8-mode-a-floating-miniplayer)
+9. [Menu Bar Extra Companion](#9-menu-bar-extra-companion)
+10. [Audio Stream Player & Radio Presets](#10-audio-stream-player--radio-presets)
+11. [Volume Balancing & Individual Speaker Sliders](#11-volume-balancing--individual-speaker-sliders)
+12. [Hardware Media Keys & macOS Control Center](#12-hardware-media-keys--macos-control-center)
+13. [Hot-Reloading the MCP Server](#13-hot-reloading-the-mcp-server)
+14. [Diagnostics & Troubleshooting](#14-diagnostics--troubleshooting)
+15. [Dual-Engine Control & Feature Gating](#15-dual-engine-control--feature-gating)
 
 ---
 
 ## 1. Overview & Architecture
 
-SonosFlow is built with Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. Similar to [LyriaFlow](https://github.com/ghchinoy/LyriaFlow), it interfaces directly with the [`homectl-sonos`](https://ghchinoy.github.io/homectl/) binary over standard input and standard output pipes conforming to the Model Context Protocol (MCP) standard `2024-11-05`.
+SonosFlow is built with Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. Similar to [LyriaFlow](https://github.com/ghchinoy/LyriaFlow), it interfaces directly with Model Context Protocol (MCP) servers conforming to standard `2024-11-05`. It supports two switchable engines:
+- **Local Engine (`homectl-sonos`)**: Connects to the local Go binary over stdio JSON-RPC (<10ms latency, full queue editing, local UPnP audio streams).
+- **Sonos Cloud Engine (The Sonos 27mcp Server)**: Connects to Sonos's official hosted endpoint at `https://mcp.ws.sonos.com/mcp` over TLS via OAuth 2.1 PKCE.
 
 <p align="center">
   <img src="src/assets/screenshots/main-window.webp" alt="SonosFlow Main Window" width="800">
 </p>
-
-```
-┌────────────────────────────────────────────────────────┐
-│                      SonosFlow                         │
-│  (App Target: WindowGroup, MenuBarExtra, MediaCenter)  │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
-│                    SonosFlowKit                        │
-│                                                        │
-│  ┌───────────────────────┐  ┌───────────────────────┐  │
-│  │   SwiftUI Views       │  │   SonosCoordinator    │  │
-│  │  (MainSplitView,      │  │     (@MainActor)      │  │
-│  │   MiniPlayerView,     │  └───────────┬───────────┘  │
-│  │   QueueListView)      │              │              │
-│  └───────────┬───────────┘              │              │
-│              │                          │              │
-│              └────────────┬─────────────┘              │
-│                           │                            │
-│  ┌────────────────────────▼─────────────────────────┐  │
-│  │               Services & Caching                 │  │
-│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────┐  │  │
-│  │  │ SonosService │ │ ArtworkCache │ │ MediaMgr │  │  │
-│  │  └───────┬──────┘ └──────────────┘ └──────────┘  │  │
-│  │          │                                       │  │
-│  │  ┌───────▼──────┐                                │  │
-│  │  │  MCPClient   │                                │  │
-│  │  └───────┬──────┘                                │  │
-│  └──────────┼───────────────────────────────────────┘  │
-└─────────────┼──────────────────────────────────────────┘
-              │ (stdio JSON-RPC 2.0)
-┌─────────────▼──────────────────────────────────────────┐
-│                   mcp-sonos (Go)                       │
-│             homectl Sonos MCP Server                   │
-└────────────────────────────────────────────────────────┘
-```
 
 ---
 
@@ -81,33 +49,55 @@ SonosFlow is built with Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. Si
 
 - **macOS 14.0 (Sonoma)** or later.
 - **Xcode Command Line Tools / Swift 5.9+**.
-- **`mcp-sonos` Binary**: Built from the `homectl` repository:
-  ```bash
-  cd /path/to/homectl
-  make build
-  # Generates: bin/mcp-sonos
-  ```
+- **Engine Choice**:
+  - **Local Engine**: `mcp-sonos` binary built from [`homectl`](https://ghchinoy.github.io/homectl/) (`make build` at `bin/mcp-sonos`).
+  - **Cloud Engine**: Internet connection and a Sonos account.
 
 ### Build & Run
 
 ```bash
-cd /path/to/sonos-swift-mcp
+git clone https://github.com/ghchinoy/SonosFlow.git
+cd SonosFlow
 
-# 1. Run automated unit test suite
+# 1. Run automated unit test suite (29 tests)
 make test
 
-# 2. Verify with headless CLI spike against live network
-make spike
-
-# 3. Launch SonosFlow.app
+# 2. Launch SonosFlow.app in debug mode
 make run
 ```
+
+---
+
+## 3. Installing to Applications Folder
+
+Install the release bundle into your user's `~/Applications` folder:
+
+```bash
+# Build release bundle and install to ~/Applications/SonosFlow.app
+make install
+
+# Launch installed app
+open ~/Applications/SonosFlow.app
+```
+
+To install system-wide for all users:
+```bash
+make install INSTALL_DIR=/Applications
+```
+
+To uninstall:
+```bash
+make uninstall
+```
+*(Your settings, Keychain tokens, and album artwork cache are safely preserved).*
 
 ---
 
 ## 3. Speaker Discovery & Multi-Room Groups
 
 When SonosFlow launches, it discovers all Sonos hardware across your local Wi-Fi subnet.
+
+## 4. Speaker Discovery & Multi-Room Groups
 
 ### Understanding Speaker Groups
 - **Standalone Room**: A single physical speaker (e.g. *Move 2* or *Whole House Port*).
@@ -124,7 +114,7 @@ Sonos uses a coordinator-follower topology. Transport commands (Play, Pause, See
 
 ---
 
-## 4. Interactive Queue Management
+## 5. Interactive Queue Management
 
 SonosFlow provides deep control over the Sonos playback queue for any selected room.
 
@@ -154,7 +144,7 @@ Click **Clear** in the queue header bar. A native macOS confirmation dialog will
 
 ---
 
-## 5. Queue Filtering & Search Clarity
+## 6. Queue Filtering & Search Clarity
 
 The queue includes a search field to quickly locate tracks in large playlists.
 
@@ -170,7 +160,7 @@ When filtered, each track displays its **true queue position** (e.g. displaying 
 
 ---
 
-## 6. Title Bar Proxy Icon & Drag-to-Export
+## 7. Title Bar Proxy Icon & Drag-to-Export
 
 SonosFlow integrates with macOS's document proxy icon system.
 
@@ -186,7 +176,7 @@ When a track plays, its album artwork is stored in the local two-tier cache (`~/
 
 ---
 
-## 7. Mode A Floating MiniPlayer
+## 8. Mode A Floating MiniPlayer
 
 <p align="center">
   <img src="src/assets/screenshots/miniplayer.webp" alt="SonosFlow Mode A Floating MiniPlayer" width="450">
@@ -204,7 +194,7 @@ Press **`⌘M`** to collapse SonosFlow into an ultra-compact floating desktop wi
 
 ---
 
-## 8. Menu Bar Extra Companion
+## 9. Menu Bar Extra Companion
 
 <p align="center">
   <img src="src/assets/screenshots/menubar-extra.webp" alt="SonosFlow Menu Bar Extra Companion" width="350">
@@ -222,7 +212,7 @@ Even when the main window is closed, SonosFlow remains accessible in the macOS s
 
 ---
 
-## 9. Audio Stream Player & Radio Presets
+## 10. Audio Stream Player & Radio Presets
 
 <p align="center">
   <img src="src/assets/screenshots/audio-stream.webp" alt="SonosFlow Audio Stream Player" width="550">
@@ -253,7 +243,7 @@ Click any curated station chip to start listening immediately:
 
 ---
 
-## 10. Volume Balancing & Individual Speaker Sliders
+## 11. Volume Balancing & Individual Speaker Sliders
 
 ### Master Room Volume
 - Use the transport slider or step buttons (`⌘↑` / `⌘↓`) to adjust master room volume in 5% increments.
@@ -271,7 +261,7 @@ When listening on a stereo pair (e.g. paired Play:1s) or multi-room group:
 
 ---
 
-## 11. Hardware Media Keys & macOS Control Center
+## 12. Hardware Media Keys & macOS Control Center
 
 SonosFlow connects directly to Apple's `MediaPlayer.framework`.
 
@@ -289,7 +279,7 @@ Audio metadata publishes directly to the macOS Control Center Now Playing widget
 
 ---
 
-## 12. Hot-Reloading the MCP Server
+## 13. Hot-Reloading the MCP Server
 
 When developing or updating the Go `mcp-sonos` binary, SonosFlow provides zero-downtime hot-reloading.
 
@@ -305,7 +295,7 @@ and restarts the child process automatically.
 
 ---
 
-## 13. Diagnostics & Troubleshooting
+## 14. Diagnostics & Troubleshooting
 
 ### Log Inspection
 SonosFlow writes diagnostics to:
@@ -326,9 +316,9 @@ In Settings (`⌘,`):
 
 ---
 
-## 14. Dual-Engine Control & Feature Gating
+## 15. Dual-Engine Control & Feature Gating
 
-SonosFlow provides an interactive **Control Engine switch** in Settings (`⌘,`), allowing you to choose between the local edge-first engine and Sonos's official cloud hosted server.
+SonosFlow provides an interactive **Control Engine switch** in Settings (`⌘,`), allowing you to choose between the local edge-first engine and the official hosted Sonos 27mcp server.
 
 ### 1. Local Engine (`homectl-sonos`) [Default]
 - **Zero Login**: Communicates via direct stdio pipes to the local Go binary.
@@ -336,7 +326,7 @@ SonosFlow provides an interactive **Control Engine switch** in Settings (`⌘,`)
 - **Full Queue Management**: 188-track interactive queue, drag-and-drop reordering, hover deletion, and "Play Next".
 - **Audio Streams (`⌘U`)**: Direct local UPnP playback for any internet radio or podcast stream URL.
 
-### 2. Sonos Cloud (`Official 27mcp`)
+### 2. The Sonos 27mcp Server (Official Cloud)
 - **OAuth 2.1 PKCE**: Sign in with your Sonos account directly from Settings. Tokens are securely stored in the macOS Keychain.
 - **Remote / VPN Support**: Allows controlling your speakers across VLANs, guest networks, or while away from home.
 - **Dynamic Feature Gating**:

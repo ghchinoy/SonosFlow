@@ -311,6 +311,18 @@ public actor CloudMCPClient {
             throw NSError(domain: "CloudMCPClient", code: code, userInfo: [NSLocalizedDescriptionKey: msg])
         }
 
+        if let resultDict = json["result"] as? [String: Any] {
+            if let isError = resultDict["isError"] as? Bool, isError {
+                var errDetail = "Tool \(name) returned an error."
+                if let content = resultDict["content"] as? [[String: Any]],
+                   let text = content.first?["text"] as? String {
+                    errDetail = text
+                }
+                throw NSError(domain: "CloudMCPClient", code: -5, userInfo: [NSLocalizedDescriptionKey: errDetail])
+            }
+            return resultDict
+        }
+
         if let result = json["result"] {
             return result
         }

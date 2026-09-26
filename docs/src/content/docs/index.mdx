@@ -1,9 +1,9 @@
 ---
 title: Welcome to SonosFlow
-description: Native macOS Sonos Controller powered by homectl MCP
+description: Native macOS Sonos Controller powered by homectl MCP or the Sonos 27mcp server
 template: splash
 hero:
-  tagline: A lightweight, native macOS Sonos controller powered by the homectl Model Context Protocol (MCP) server.
+  tagline: A lightweight, native macOS Sonos controller powered by the local homectl MCP server or the Sonos 27mcp server.
   image:
     file: ../../assets/app-icon.png
   actions:
@@ -28,14 +28,14 @@ import mainWindow from '../../assets/screenshots/main-window.webp';
 ## Core Capabilities
 
 <CardGrid stagger>
-  <Card title="Direct MCP Integration" icon="laptop">
-    Communicates directly with the [`homectl-sonos`](https://ghchinoy.github.io/homectl/) binary over stdio JSON-RPC without intermediate background daemons or cloud requirements.
+  <Card title="Dual-Engine Architecture" icon="laptop">
+    Switch seamlessly between the local edge-first engine (`homectl-sonos` via stdio pipe) and the official hosted SaaS endpoint (the Sonos 27mcp server via OAuth 2.1 PKCE).
   </Card>
   <Card title="Multi-Group & Stereo Pairs" icon="setting">
-    Discovers all household zone groups, stereo pairs, and multi-room clusters with automatic coordinator IP resolution.
+    Discovers all household zone groups, stereo pairs, and multi-room clusters with automatic coordinator IP and cloud group resolution.
   </Card>
   <Card title="Interactive Playback Queue" icon="list-format">
-    Inspects full track queues with artwork thumbnails, duration, artist metadata, and double-click track seeking.
+    Inspects full track queues with artwork thumbnails, duration, artist metadata, and drag-and-drop reordering on Local, with single-track Up Next preview on Cloud.
   </Card>
   <Card title="Two-Tier Artwork Caching" icon="document">
     In-memory and SHA-256 persistent disk storage for album covers, enabling offline instant startup and title bar proxy icon dragging.

@@ -642,20 +642,209 @@ final class SonosFlowTests: XCTestCase {
     @MainActor
     func testCoordinatorEngineSwitching() async {
         let settings = AppSettings(defaults: UserDefaults(suiteName: "EngineSwitchTest")!)
-        let coordinator = SonosCoordinator(settings: settings)
+        let localMock = MockSonosBackend(engine: .local)
+        let cloudMock = MockSonosBackend(engine: .cloud)
+
+        let coordinator = SonosCoordinator(backend: localMock, settings: settings)
         XCTAssertEqual(coordinator.backend.engine, .local)
         XCTAssertTrue(coordinator.capabilities.supportsQueue)
 
-        await coordinator.switchEngine(to: .cloud)
+        await coordinator.switchEngine(to: .cloud, customBackend: cloudMock)
         XCTAssertEqual(coordinator.backend.engine, .cloud)
         XCTAssertFalse(coordinator.capabilities.supportsQueue)
         XCTAssertFalse(coordinator.capabilities.supportsAudioStreams)
         XCTAssertTrue(coordinator.queueItems.isEmpty)
 
-        await coordinator.switchEngine(to: .local)
+        await coordinator.switchEngine(to: .local, customBackend: localMock)
         XCTAssertEqual(coordinator.backend.engine, .local)
         XCTAssertTrue(coordinator.capabilities.supportsQueue)
     }
+
+    // MARK: - Official Sonos 27mcp Server Fixture Parsing Tests
+
+    func testSonosCloudBackendTopologyParsing() throws {
+        // Real JSON fixture captured from get_households_and_groups_and_players
+        let rawJson = """
+        [
+          {
+            "name": "Mountain House",
+            "householdId": "Sonos_tVb6BKkcSkYTKZzAZKVPpllYKk",
+            "groups": [
+              {
+                "groupId": "RINCON_TVROOM:1",
+                "playbackState": "PLAYBACK_STATE_IDLE",
+                "players": [
+                  {
+                    "name": "TV Room",
+                    "playerId": "RINCON_TVROOM",
+                    "capabilities": ["HT_PLAYBACK"]
+                  }
+                ]
+              },
+              {
+                "groupId": "RINCON_MOVE:2",
+                "playbackState": "PLAYBACK_STATE_PLAYING",
+                "players": [
+                  {
+                    "name": "Move 2",
+                    "playerId": "RINCON_MOVE",
+                    "capabilities": ["LINE_IN"]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+        """
+        let mcpWrapper: [String: Any] = [
+            "content": [
+                [
+                    "type": "text",
+                    "text": rawJson
+                ]
+            ]
+        ]
+
+        let backend = SonosCloudBackend()
+        let result = try backend.parseTopologyResponse(mcpWrapper)
+
+        XCTAssertEqual(result.count, 2)
+        XCTAssertEqual(result.groups.count, 2)
+
+        let tvGroup = result.groups[0]
+        XCTAssertEqual(tvGroup.displayName, "TV Room")
+        XCTAssertEqual(tvGroup.householdId, "Sonos_tVb6BKkcSkYTKZzAZKVPpllYKk")
+        XCTAssertEqual(tvGroup.target.groupId, "RINCON_TVROOM:1")
+        XCTAssertNil(tvGroup.target.localIP)
+
+        let moveGroup = result.groups[1]
+        XCTAssertEqual(moveGroup.displayName, "Move 2")
+        XCTAssertEqual(moveGroup.target.groupId, "RINCON_MOVE:2")
+    }
+
+    func testSonosCloudBackendNowPlayingParsing() throws {
+        // Real JSON fixture captured from get_now_playing
+        let rawJson = """
+        {
+          "currentTrack": {
+            "name": "Poison",
+            "artist": "Alice Cooper",
+            "album": "Trash",
+            "durationMillis": 269000,
+            "service": "YouTube Music",
+            "imageUrl": "https://example.com/art.jpg"
+          },
+          "nextTrack": {
+            "name": "Bed of Nails",
+            "artist": "Alice Cooper",
+            "album": "Trash",
+            "imageUrl": "https://example.com/next.jpg"
+          }
+        }
+        """
+        let mcpWrapper: [String: Any] = [
+            "content": [
+                [
+                    "type": "text",
+                    "text": rawJson
+                ]
+            ]
+        ]
+
+        let backend = SonosCloudBackend()
+        let np = try backend.parseNowPlayingResponse(mcpWrapper, groupId: "RINCON_MOVE:2", volume: 22, isMuted: false)
+
+        XCTAssertEqual(np.title, "Poison")
+        XCTAssertEqual(np.artist, "Alice Cooper")
+        XCTAssertEqual(np.album, "Trash")
+        XCTAssertEqual(np.duration, "4:29")
+        XCTAssertEqual(np.volume, 22)
+        XCTAssertEqual(np.trackURI, "https://example.com/art.jpg")
+
+        XCTAssertNotNil(np.upNext)
+        XCTAssertEqual(np.upNext?.title, "Bed of Nails")
+        XCTAssertEqual(np.upNext?.artist, "Alice Cooper")
+    }
+
+    func testSonosCloudBackendFavoritesParsing() {
+        // Real JSON fixture captured from get_sonos_favorites
+        let rawJson = """
+        [
+          {
+            "name": "Heather's holiday music",
+            "id": "4",
+            "imageUrl": "https://example.com/fav4.jpg"
+          },
+          {
+            "name": "Liked Music",
+            "id": "3"
+          }
+        ]
+        """
+        let mcpWrapper: [String: Any] = [
+            "content": [
+                [
+                    "type": "text",
+                    "text": rawJson
+                ]
+            ]
+        ]
+
+        let backend = SonosCloudBackend()
+        let favs = backend.parseFavoritesResponse(mcpWrapper)
+
+        XCTAssertEqual(favs.count, 2)
+        XCTAssertEqual(favs[0].id, "4")
+        XCTAssertEqual(favs[0].title, "Heather's holiday music")
+        XCTAssertEqual(favs[0].albumArtURI, "https://example.com/fav4.jpg")
+        XCTAssertEqual(favs[1].id, "3")
+        XCTAssertEqual(favs[1].title, "Liked Music")
+    }
+}
+
+// MARK: - Mock Backend Definition
+
+class MockSonosBackend: SonosBackend, @unchecked Sendable {
+    let engine: ControlEngine
+    var capabilities: ServerCapabilities
+    var topologyToReturn: TopologyResult = TopologyResult(count: 0, groups: [])
+    var nowPlayingToReturn: NowPlayingResult?
+    var favoritesToReturn: [SonosFavorite] = []
+    var isConnectedValue: Bool = true
+
+    init(engine: ControlEngine, capabilities: ServerCapabilities? = nil) {
+        self.engine = engine
+        self.capabilities = capabilities ?? (engine == .local ? .localDefault : .cloudDefault)
+    }
+
+    func connect() async throws -> (serverInfo: MCPServerInfo, tools: [MCPTool]) {
+        return (MCPServerInfo(name: engine == .local ? "homectl-sonos" : "sonos-mcp"), [])
+    }
+    func disconnect() async {}
+    func isConnected() async -> Bool { isConnectedValue }
+    func getTopology(target: SonosTarget?) async throws -> TopologyResult { topologyToReturn }
+    func getNowPlaying(target: SonosTarget) async throws -> NowPlayingResult {
+        nowPlayingToReturn ?? NowPlayingResult(ip: "mock", state: "PLAYING", volume: 20)
+    }
+    func play(target: SonosTarget) async throws {}
+    func pause(target: SonosTarget) async throws {}
+    func next(target: SonosTarget) async throws {}
+    func previous(target: SonosTarget) async throws {}
+    func seekTrack(target: SonosTarget, track: Int) async throws {}
+    func seekTime(target: SonosTarget, seconds: Int) async throws {}
+    func setVolume(target: SonosTarget, volume: Int) async throws {}
+    func adjustVolume(target: SonosTarget, delta: Int) async throws {}
+    func setMute(target: SonosTarget, muted: Bool) async throws {}
+    func listFavorites(target: SonosTarget?) async throws -> [SonosFavorite] { favoritesToReturn }
+    func playFavorite(target: SonosTarget, favoriteId: String) async throws {}
+    func playStream(target: SonosTarget, url: String, title: String?) async throws {}
+    func getQueue(target: SonosTarget, start: Int, count: Int) async throws -> QueueResult {
+        QueueResult(items: [], returned: 0, totalMatches: 0, startIndex: start)
+    }
+    func removeTrackFromQueue(target: SonosTarget, track: Int, count: Int) async throws {}
+    func reorderQueue(target: SonosTarget, startingIndex: Int, numberOfTracks: Int, insertBefore: Int) async throws {}
+    func reorderToPlayNext(target: SonosTarget, track: Int, count: Int) async throws {}
+    func clearQueue(target: SonosTarget) async throws {}
 }
 
 // MARK: - Mock Service Definition

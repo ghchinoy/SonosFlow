@@ -85,9 +85,9 @@ public final class SonosCoordinator: ObservableObject {
         errorMessage = nil
 
         // Ensure backend matches user setting
-        if settings.controlEngine == .cloud && !(backend is SonosCloudBackend) {
+        if settings.controlEngine == .cloud && backend.engine != .cloud {
             self.backend = SonosCloudBackend()
-        } else if settings.controlEngine == .local && !(backend is LocalHomectlBackend) {
+        } else if settings.controlEngine == .local && backend.engine != .local {
             self.backend = LocalHomectlBackend(service: SonosService(), settings: settings)
         }
 
@@ -113,12 +113,14 @@ public final class SonosCoordinator: ObservableObject {
     }
 
     /// Switches the active control engine between Local and Cloud without auto-fallback
-    public func switchEngine(to newEngine: ControlEngine) async {
+    public func switchEngine(to newEngine: ControlEngine, customBackend: (any SonosBackend)? = nil) async {
         guard newEngine != settings.controlEngine else { return }
         settings.controlEngine = newEngine
         await disconnect()
 
-        if newEngine == .cloud {
+        if let custom = customBackend {
+            self.backend = custom
+        } else if newEngine == .cloud {
             self.backend = SonosCloudBackend()
         } else {
             self.backend = LocalHomectlBackend(service: SonosService(), settings: settings)
