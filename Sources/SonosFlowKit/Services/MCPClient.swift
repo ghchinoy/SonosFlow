@@ -266,7 +266,12 @@ public actor MCPClient {
             for t in tools {
                 let name = t["name"] as? String ?? ""
                 let desc = t["description"] as? String
-                toolsList.append(MCPTool(name: name, description: desc))
+                var schemaJSON: String? = nil
+                if let schema = t["inputSchema"],
+                   let data = try? JSONSerialization.data(withJSONObject: schema) {
+                    schemaJSON = String(data: data, encoding: .utf8)
+                }
+                toolsList.append(MCPTool(name: name, description: desc, inputSchemaJSON: schemaJSON))
             }
         }
 

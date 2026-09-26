@@ -41,7 +41,7 @@ SonosFlow is a lightweight, standalone macOS application built with Swift and Sw
 
 SonosFlow features a seamless **Dual-Engine Architecture**:
 1. **Local Network Engine (`homectl-sonos`) [Recommended Default]**: Connects directly to the local [`homectl`](https://ghchinoy.github.io/homectl/) Go binary via stdio JSON-RPC 2.0. Delivers ultra-low latency (<10ms), offline LAN operation, direct 188-track queue reordering and deletion (`Q:0`), and local radio stream playback (`⌘U`).
-2. **Sonos Cloud Engine (The Sonos 27mcp Server)**: Connects to Sonos's official hosted endpoint at `https://mcp.ws.sonos.com/mcp` using OAuth 2.1 PKCE with credentials stored securely in the macOS Keychain. Allows remote control across guest Wi-Fi, VPNs, or away from home, with single-track Up Next preview.
+2. **Sonos Cloud Engine (The Sonos 27mcp Server)**: Connects to Sonos's official hosted endpoint at `https://mcp.ws.sonos.com/mcp` (announced in Sonos's blog post [*Meet Sonos 27*](https://www.sonos.com/en-us/blog/meet-sonos-27)) using OAuth 2.1 PKCE with credentials stored securely in the macOS Keychain. Allows remote control across guest Wi-Fi, VPNs, or away from home, with single-track Up Next preview.
 
 You can switch between engines at any time in **Settings (`⌘,`)**. SonosFlow dynamically inspects negotiated server tools (`tools/list`) and automatically gates available UI features.
 
@@ -49,7 +49,7 @@ You can switch between engines at any time in **Settings (`⌘,`)**. SonosFlow d
 
 ## Choosing an Engine
 
-| Capability | Local Engine (`homectl-sonos`) [Default] | The Sonos 27mcp Server (Official Cloud) |
+| Capability | Local Engine (`homectl-sonos`) [Default] | [The Sonos 27mcp Server](https://www.sonos.com/en-us/blog/meet-sonos-27) (Official Cloud) |
 |---|---|---|
 | **Architecture** | Edge-first local process pipe (`stdio`) | Hosted SaaS over HTTPS/TLS (`mcp.ws.sonos.com`) |
 | **Authentication** | **Zero login required** (LAN auto-discovery) | **OAuth 2.1 PKCE** (Sonos account login in browser) |
@@ -211,7 +211,7 @@ sonos-swift-mcp/
 │       └── main.swift
 │
 └── Tests/
-    └── SonosFlowTests/               # Unit test suite (29 tests with MockSonosService & MockSonosBackend)
+    └── SonosFlowTests/               # Unit test suite (31 tests with MockSonosService & MockSonosBackend)
         └── SonosFlowTests.swift
 ```
 
@@ -247,7 +247,7 @@ sonos-swift-mcp/
 ```bash
 make test
 ```
-Executes the full unit test suite (29 tests) using `MockSonosService` and `MockSonosBackend` covering topology candidate failover (Move 2 -> Play:1), multi-page queue pagination (188+ tracks), optimistic mutation rollbacks on server errors, volume jitter debouncing, mute state restoration, preset persistence, engine switching, and live cloud JSON fixture parsing.
+Executes the full unit test suite (31 tests) using `MockSonosService` and `MockSonosBackend` covering topology candidate failover (Move 2 -> Play:1), multi-page queue pagination (188+ tracks), optimistic mutation rollbacks on server errors, volume jitter debouncing, mute state restoration, preset persistence, engine switching, dynamic schema inspection (control-bjv), and live cloud JSON fixture parsing.
 
 ### Running the Live Local Spike
 ```bash
@@ -265,7 +265,7 @@ Runs `SonosOfficialMCPSpike` to authenticate with your Sonos account via OAuth 2
 
 ## Local homectl vs. The Sonos 27mcp Server
 
-SonosFlow defaults to local **`homectl-sonos`** for ultra-low latency (<10ms), offline reliability, and deep physical queue manipulation (`Q:0`). For a side-by-side comparison with the Sonos 27mcp server, read **[Comparative Analysis: homectl-sonos vs. The Sonos 27mcp Server](docs/official-mcp-comparison.md)** or view the live documentation.
+SonosFlow defaults to local **`homectl-sonos`** for ultra-low latency (<10ms), offline reliability, and deep physical queue manipulation (`Q:0`). For a side-by-side comparison with [the Sonos 27mcp server](https://www.sonos.com/en-us/blog/meet-sonos-27), read **[Comparative Analysis: homectl-sonos vs. The Sonos 27mcp Server](docs/official-mcp-comparison.md)** or view the live documentation.
 
 ---
 
@@ -301,7 +301,7 @@ make docs-preview
 | `make install` | Installs release bundle to `~/Applications/SonosFlow.app` (or `INSTALL_DIR=...`). |
 | `make uninstall` | Removes bundle from `~/Applications/SonosFlow.app`. |
 | `make app` | Builds an optimized release `.app` bundle. |
-| `make test` | Executes the 29-test automated unit test suite. |
+| `make test` | Executes the 31-test automated unit test suite. |
 | `make spike` | Runs local `homectl-sonos` MCP verification spike. |
 | `make official-spike` | Runs official hosted `Sonos 27mcp` exploration spike. |
 | `make docs-install` | Installs Astro Starlight documentation dependencies. |

@@ -25,7 +25,7 @@ Clone or open the repository:
 git clone https://github.com/ghchinoy/SonosFlow.git
 cd SonosFlow
 
-# 1. Execute unit test suite (29 tests)
+# 1. Execute unit test suite (31 tests)
 make test
 
 # 2. Launch the native macOS app in debug mode

@@ -18,8 +18,7 @@ public final class LocalHomectlBackend: SonosBackend, @unchecked Sendable {
     public func connect() async throws -> (serverInfo: MCPServerInfo, tools: [MCPTool]) {
         let path = settings.effectiveMcpBinaryPath
         let (info, tools) = try await service.client.initializeAndVerify(binaryPath: path)
-        let toolNames = Set(tools.map(\.name))
-        self.capabilities = ServerCapabilities(engine: .local, rawToolNames: toolNames)
+        self.capabilities = ServerCapabilities(engine: .local, tools: tools)
         return (info, tools)
     }
 

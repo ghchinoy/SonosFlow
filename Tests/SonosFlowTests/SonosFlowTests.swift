@@ -560,6 +560,56 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertTrue(caps.supportsVolumeControl)
         XCTAssertFalse(caps.supportsHomeTheaterEQ)
         XCTAssertFalse(caps.supportsShuffleRepeat)
+        XCTAssertFalse(caps.supportsCrossfade)
+    }
+
+    func testServerCapabilitiesLocalWithControlBJV() {
+        // Schema inspection for control-bjv: shuffle, repeat, crossfade inside sonos_queue_edit
+        let queueEditSchema = """
+        {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["remove", "clear", "reorder", "shuffle", "repeat", "crossfade"]
+                }
+            }
+        }
+        """
+        let tools: [MCPTool] = [
+            MCPTool(name: "sonos_list_speakers"),
+            MCPTool(name: "sonos_get_topology"),
+            MCPTool(name: "sonos_get_now_playing"),
+            MCPTool(name: "sonos_get_queue"),
+            MCPTool(name: "sonos_control"),
+            MCPTool(name: "sonos_set_volume"),
+            MCPTool(name: "sonos_list_favorites"),
+            MCPTool(name: "sonos_play_favorite"),
+            MCPTool(name: "sonos_play_stream"),
+            MCPTool(name: "sonos_queue_edit", inputSchemaJSON: queueEditSchema)
+        ]
+
+        let caps = ServerCapabilities(engine: .local, tools: tools)
+        XCTAssertEqual(caps.engine, .local)
+        XCTAssertTrue(caps.supportsQueue)
+        XCTAssertTrue(caps.supportsQueueEdit)
+        XCTAssertTrue(caps.supportsShuffleRepeat, "Should dynamically discover shuffle/repeat from sonos_queue_edit action enum")
+        XCTAssertTrue(caps.supportsCrossfade, "Should dynamically discover crossfade from sonos_queue_edit action enum")
+    }
+
+    func testMCPToolEnumExtraction() {
+        let schema = """
+        {
+            "properties": {
+                "action": {
+                    "enum": ["play", "pause", "next", "previous"]
+                }
+            }
+        }
+        """
+        let tool = MCPTool(name: "sonos_control", inputSchemaJSON: schema)
+        let actions = tool.enumValues(forProperty: "action")
+        XCTAssertEqual(actions, ["play", "pause", "next", "previous"])
     }
 
     func testServerCapabilitiesCloud() {

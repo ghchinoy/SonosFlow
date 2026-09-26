@@ -13,7 +13,7 @@ A detailed comparison between **SonosFlow's local MCP engine (`homectl-sonos`)**
 
 ## Executive Summary
 
-On September 7, 2026, Sonos launched early access for **Sonos 27mcp** ([support article](https://support.sonos.com/en-us/article/control-your-sonos-system-with-ai-using-sonos-27mcp) & [tech blog](https://tech-blog.sonos.com/posts/sonos-27mcp/)), providing a hosted remote Model Context Protocol endpoint at `https://mcp.ws.sonos.com/mcp`.
+On September 7, 2026, Sonos announced [The Sonos 27mcp server](https://www.sonos.com/en-us/blog/meet-sonos-27) ([support article](https://support.sonos.com/en-us/article/control-your-sonos-system-with-ai-using-sonos-27mcp) & [tech blog](https://tech-blog.sonos.com/posts/sonos-27mcp/)), providing a hosted remote Model Context Protocol endpoint at `https://mcp.ws.sonos.com/mcp`.
 
 Using our automated exploration spike (`SonosOfficialMCPSpike`), we completed dynamic registration, authenticated via OAuth 2.1 PKCE, and retrieved the **full 34-tool catalog** directly from Sonos's production cloud endpoint, benchmarking a live round-trip latency of **219ms** (vs. **<10ms** for local `homectl-sonos`).
 
@@ -159,7 +159,7 @@ Rather than hardcoding UI states to a backend name, SonosFlow dynamically inspec
 
 - **Keep `homectl-sonos` as the Primary Driver**: For a desktop music controller, local LAN communication is vastly superior in responsiveness (<10ms vs. ~220ms), privacy, offline reliability, and deterministic queue manipulation.
 - **Port Useful Features from the Official Server to `homectl`**:
-  - Home Theater EQ (Night Sound / Speech Enhancement).
-  - Shuffle and Repeat modes.
-  - Dynamic zone grouping (`control-333`).
+  - **Shuffle & Repeat Playback Modes (`control-bjv`)**: In active development in `homectl`. Implemented by adding `shuffle`, `repeat`, and `crossfade` actions to `sonos_queue_edit` while maintaining the exact 12-tool footprint, accompanied by `play_mode`, `shuffle`, `repeat`, and `crossfade` state reporting in `sonos_get_now_playing`.
+  - **Home Theater EQ (`control-2ic` - Deferred)**: Exploration of soundbar Night Sound and Speech Enhancement revealed that UPnP `RenderingControl:1#GetEQ` (`NightMode`, `DialogLevel`) succeeds on soundbars (Arc, Beam) but returns HTTP 500 on standalone or portable speakers (Play:1, Move 2). Crucially, EQ settings are strictly per-physical-speaker properties and cannot be routed through group coordinators. Deferred pending a per-speaker tool architecture.
+  - **Dynamic Zone Grouping (`control-333`)**: Grouping and ungrouping speakers on the local network.
 - **Retain `SonosOfficialMCPSpike` in the Repo**: The spike provides an automated test harness to track future schema updates published to `mcp.ws.sonos.com/mcp` and evaluate new tools as Sonos rolls them out.

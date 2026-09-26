@@ -15,8 +15,7 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
 
     public func connect() async throws -> (serverInfo: MCPServerInfo, tools: [MCPTool]) {
         let (info, tools) = try await client.initialize()
-        let toolNames = Set(tools.map(\.name))
-        self.capabilities = ServerCapabilities(engine: .cloud, rawToolNames: toolNames)
+        self.capabilities = ServerCapabilities(engine: .cloud, tools: tools)
         return (info, tools)
     }
 

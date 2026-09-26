@@ -59,7 +59,7 @@ SonosFlow is built with Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. Si
 git clone https://github.com/ghchinoy/SonosFlow.git
 cd SonosFlow
 
-# 1. Run automated unit test suite (29 tests)
+# 1. Run automated unit test suite (31 tests)
 make test
 
 # 2. Launch SonosFlow.app in debug mode

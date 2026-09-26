@@ -75,26 +75,33 @@ public struct ServerCapabilities: Equatable, Sendable {
     public let supportsDynamicGrouping: Bool
     public let supportsHomeTheaterEQ: Bool
     public let supportsShuffleRepeat: Bool
+    public let supportsCrossfade: Bool
     public let supportsMusicSearch: Bool
     public let rawToolNames: Set<String>
 
     public init(
         engine: ControlEngine,
-        rawToolNames: Set<String>
+        tools: [MCPTool]
     ) {
         self.engine = engine
-        self.rawToolNames = rawToolNames
+        let toolNames = Set(tools.map(\.name))
+        self.rawToolNames = toolNames
+        let toolsByName = Dictionary(uniqueKeysWithValues: tools.map { ($0.name, $0) })
 
         switch engine {
         case .local:
-            self.supportsQueue = rawToolNames.contains("sonos_get_queue")
-            self.supportsQueueEdit = rawToolNames.contains("sonos_queue_edit")
-            self.supportsAudioStreams = rawToolNames.contains("sonos_play_stream")
-            self.supportsFavorites = rawToolNames.contains("sonos_list_favorites") && rawToolNames.contains("sonos_play_favorite")
-            self.supportsVolumeControl = rawToolNames.contains("sonos_set_volume")
-            self.supportsDynamicGrouping = rawToolNames.contains("sonos_group")
-            self.supportsHomeTheaterEQ = rawToolNames.contains("sonos_set_eq")
-            self.supportsShuffleRepeat = rawToolNames.contains("sonos_set_playmode")
+            self.supportsQueue = toolNames.contains("sonos_get_queue")
+            self.supportsQueueEdit = toolNames.contains("sonos_queue_edit")
+            self.supportsAudioStreams = toolNames.contains("sonos_play_stream")
+            self.supportsFavorites = toolNames.contains("sonos_list_favorites") && toolNames.contains("sonos_play_favorite")
+            self.supportsVolumeControl = toolNames.contains("sonos_set_volume")
+            self.supportsDynamicGrouping = toolNames.contains("sonos_group")
+            self.supportsHomeTheaterEQ = toolNames.contains("sonos_set_eq")
+
+            // Introspect sonos_queue_edit inputSchema actions for control-bjv
+            let queueEditActions = toolsByName["sonos_queue_edit"]?.enumValues(forProperty: "action") ?? []
+            self.supportsShuffleRepeat = queueEditActions.contains("shuffle") || queueEditActions.contains("repeat") || toolNames.contains("sonos_set_playmode")
+            self.supportsCrossfade = queueEditActions.contains("crossfade")
             self.supportsMusicSearch = false
 
         case .cloud:
@@ -102,13 +109,22 @@ public struct ServerCapabilities: Equatable, Sendable {
             self.supportsQueue = false
             self.supportsQueueEdit = false
             self.supportsAudioStreams = false
-            self.supportsFavorites = rawToolNames.contains("get_sonos_favorites") && rawToolNames.contains("play_sonos_favorite")
-            self.supportsVolumeControl = rawToolNames.contains("set_group_volume") || rawToolNames.contains("set_player_volume")
-            self.supportsDynamicGrouping = rawToolNames.contains("add_players_to_group") && rawToolNames.contains("remove_players_from_group")
-            self.supportsHomeTheaterEQ = rawToolNames.contains("get_night_sound_and_speech_enhancement") && rawToolNames.contains("set_night_sound_and_speech_enhancement")
-            self.supportsShuffleRepeat = rawToolNames.contains("get_shuffle_repeat_crossfade") && rawToolNames.contains("set_shuffle_repeat_crossfade")
-            self.supportsMusicSearch = rawToolNames.contains("play_track") || rawToolNames.contains("play_album") || rawToolNames.contains("play_artist")
+            self.supportsFavorites = toolNames.contains("get_sonos_favorites") && toolNames.contains("play_sonos_favorite")
+            self.supportsVolumeControl = toolNames.contains("set_group_volume") || toolNames.contains("set_player_volume")
+            self.supportsDynamicGrouping = toolNames.contains("add_players_to_group") && toolNames.contains("remove_players_from_group")
+            self.supportsHomeTheaterEQ = toolNames.contains("get_night_sound_and_speech_enhancement") && toolNames.contains("set_night_sound_and_speech_enhancement")
+            self.supportsShuffleRepeat = toolNames.contains("get_shuffle_repeat_crossfade") && toolNames.contains("set_shuffle_repeat_crossfade")
+            self.supportsCrossfade = toolNames.contains("get_shuffle_repeat_crossfade") && toolNames.contains("set_shuffle_repeat_crossfade")
+            self.supportsMusicSearch = toolNames.contains("play_track") || toolNames.contains("play_album") || toolNames.contains("play_artist")
         }
+    }
+
+    public init(
+        engine: ControlEngine,
+        rawToolNames: Set<String>
+    ) {
+        let dummyTools = rawToolNames.map { MCPTool(name: $0) }
+        self.init(engine: engine, tools: dummyTools)
     }
 
     public static let localDefault = ServerCapabilities(
