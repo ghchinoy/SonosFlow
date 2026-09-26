@@ -6,7 +6,6 @@ public struct QueueListView: View {
     @Binding var showingFavorites: Bool
     @State private var searchText: String = ""
     @State private var selectedTrackId: String? = nil
-    @State private var showingClearConfirmation: Bool = false
 
     public init(coordinator: SonosCoordinator, showingFavorites: Binding<Bool>) {
         self.coordinator = coordinator
@@ -92,6 +91,8 @@ public struct QueueListView: View {
                             coordinatorIP: coordinator.selectedGroup?.coordinatorIP ?? "",
                             isCurrentTrack: isCurrentlyPlaying(item: item),
                             isSelected: selectedTrackId == item.id,
+                            totalTracks: coordinator.queueTotalMatches > 0 ? coordinator.queueTotalMatches : coordinator.queueItems.count,
+                            isFiltering: isFiltering,
                             onPlay: {
                                 Task { await coordinator.playQueueItem(item) }
                             },
@@ -105,11 +106,11 @@ public struct QueueListView: View {
                         .tag(item.id)
                         .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
                     }
-                    .onMove { indices, newOffset in
+                    .onMove(perform: isFiltering ? nil : { indices, newOffset in
                         Task {
                             await coordinator.moveQueueItems(from: indices, to: newOffset)
                         }
-                    }
+                    })
                     .onDelete { indexSet in
                         for idx in indexSet {
                             if idx < filteredItems.count {
@@ -120,11 +121,25 @@ public struct QueueListView: View {
                     }
                 }
                 .listStyle(.inset)
+                .onKeyPress(.return) {
+                    if let selId = selectedTrackId, let item = coordinator.queueItems.first(where: { $0.id == selId }) {
+                        Task { await coordinator.playQueueItem(item) }
+                        return .handled
+                    }
+                    return .ignored
+                }
+                .onKeyPress(.delete) {
+                    if let selId = selectedTrackId, let item = coordinator.queueItems.first(where: { $0.id == selId }) {
+                        Task { await coordinator.removeQueueItem(item) }
+                        return .handled
+                    }
+                    return .ignored
+                }
             }
         }
         .confirmationDialog(
             "Clear Playback Queue",
-            isPresented: $showingClearConfirmation,
+            isPresented: $coordinator.showingClearQueueConfirmation,
             titleVisibility: .visible
         ) {
             Button("Clear All Tracks", role: .destructive) {
@@ -185,7 +200,7 @@ public struct QueueListView: View {
 
             // Clear Queue Button
             if !coordinator.queueItems.isEmpty {
-                Button(action: { showingClearConfirmation = true }) {
+                Button(action: { coordinator.showingClearQueueConfirmation = true }) {
                     Text("Clear")
                         .font(.caption.weight(.medium))
                         .foregroundColor(.secondary)
@@ -267,6 +282,8 @@ public struct QueueItemRow: View {
     public let coordinatorIP: String
     public let isCurrentTrack: Bool
     public let isSelected: Bool
+    public let totalTracks: Int
+    public let isFiltering: Bool
     public let onPlay: () -> Void
     public let onPlayNext: () -> Void
     public let onRemove: () -> Void
@@ -275,11 +292,13 @@ public struct QueueItemRow: View {
 
     public var body: some View {
         HStack(spacing: 10) {
-            // Reorder Drag Affordance
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 11))
-                .foregroundColor(isHovering ? .secondary.opacity(0.8) : .clear)
-                .frame(width: 14)
+            // Reorder Drag Affordance (only visible when not filtering)
+            if !isFiltering {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 11))
+                    .foregroundColor(isHovering ? .secondary.opacity(0.8) : .clear)
+                    .frame(width: 14)
+            }
 
             // Track Number or Play Indicator
             ZStack {
@@ -299,6 +318,7 @@ public struct QueueItemRow: View {
                     Text("\(item.position)")
                         .font(.system(size: 12, weight: .regular, design: .monospaced))
                         .foregroundColor(.secondary)
+                        .help("Queue position #\(item.position) of \(totalTracks)")
                 }
             }
             .frame(width: 24, alignment: .center)

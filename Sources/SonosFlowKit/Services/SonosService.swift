@@ -1,6 +1,6 @@
 import Foundation
 
-public final class SonosService: Sendable {
+public class SonosService: @unchecked Sendable {
     public let client: MCPClient
 
     public init(client: MCPClient = MCPClient()) {

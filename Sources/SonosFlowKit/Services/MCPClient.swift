@@ -9,6 +9,8 @@ public actor MCPClient {
     private var pendingRequests: [Int: CheckedContinuation<[String: Any], Error>] = [:]
     private var requestIdCounter: Int = 0
     private var buffer = Data()
+    private var stdoutContinuation: AsyncStream<Data>.Continuation?
+    private var streamReaderTask: Task<Void, Never>?
     public private(set) var availableToolNames: Set<String> = []
     public private(set) var currentBinaryPath: String?
     public private(set) var binaryStartedModificationDate: Date?
@@ -87,13 +89,21 @@ public actor MCPClient {
             }
         }
 
-        // Setup stdout line processing
-        sout.fileHandleForReading.readabilityHandler = { [weak self] h in
+        // Setup FIFO ordered stdout stream processing
+        let (stream, continuation) = AsyncStream<Data>.makeStream()
+        self.stdoutContinuation = continuation
+
+        sout.fileHandleForReading.readabilityHandler = { h in
             let data = h.availableData
-            if data.isEmpty { return }
-            guard let self = self else { return }
-            Task {
-                await self.handleStdoutData(data)
+            if !data.isEmpty {
+                continuation.yield(data)
+            }
+        }
+
+        self.streamReaderTask = Task { [weak self] in
+            for await chunk in stream {
+                guard let self = self else { break }
+                await self.handleStdoutData(chunk)
             }
         }
 
@@ -121,6 +131,11 @@ public actor MCPClient {
         isRunning = false
         stdoutPipe?.fileHandleForReading.readabilityHandler = nil
         stderrPipe?.fileHandleForReading.readabilityHandler = nil
+        stdoutContinuation?.finish()
+        stdoutContinuation = nil
+        streamReaderTask?.cancel()
+        streamReaderTask = nil
+
         if let p = process, p.isRunning {
             p.terminationHandler = nil
             p.terminate()

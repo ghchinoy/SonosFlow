@@ -346,7 +346,7 @@ struct SonosOfficialMCPSpike {
             print("✅ Retrieved \(tools.count) tools from Sonos 27mcp in \(Int(listDuration * 1000))ms!\n")
 
             // Format and save to docs/official-mcp-tools.json
-            let outputDir = URL(fileURLWithPath: "/Users/ghchinoy/projects/sonos-swift-mcp/docs")
+            let outputDir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("docs")
             let outputFile = outputDir.appendingPathComponent("official-mcp-tools.json")
             let prettyData = try JSONSerialization.data(withJSONObject: tools, options: [.prettyPrinted, .sortedKeys])
             try prettyData.write(to: outputFile)

@@ -161,7 +161,7 @@ struct SonosFlowApp: App {
                 Divider()
 
                 Button("Play Audio Stream...") {
-                    // Handled via standard shortcut ⌘U in MainSplitView
+                    coordinator.showingStreamPlayer = true
                 }
                 .keyboardShortcut("u", modifiers: .command)
             }
@@ -181,7 +181,7 @@ struct SonosFlowApp: App {
                 Divider()
 
                 Button("Clear Queue...") {
-                    Task { await coordinator.clearQueue() }
+                    coordinator.showingClearQueueConfirmation = true
                 }
                 .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(coordinator.queueItems.isEmpty)

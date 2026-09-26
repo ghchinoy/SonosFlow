@@ -4,7 +4,6 @@ import AppKit
 public struct MainSplitView: View {
     @ObservedObject public var coordinator: SonosCoordinator
     @State private var showingFavorites: Bool = false
-    @State private var showingStreamPlayer: Bool = false
     @State private var showingSettings: Bool = false
     @State private var eventMonitor: Any? = nil
     @State private var currentWindow: NSWindow? = nil
@@ -44,7 +43,7 @@ public struct MainSplitView: View {
         .sheet(isPresented: $showingFavorites) {
             FavoritesPopoverView(coordinator: coordinator)
         }
-        .sheet(isPresented: $showingStreamPlayer) {
+        .sheet(isPresented: $coordinator.showingStreamPlayer) {
             StreamPlayerSheetView(coordinator: coordinator)
         }
         .sheet(isPresented: $showingSettings) {
@@ -69,7 +68,7 @@ public struct MainSplitView: View {
             SpeakerSidebarView(
                 coordinator: coordinator,
                 showingFavorites: $showingFavorites,
-                showingStreamPlayer: $showingStreamPlayer,
+                showingStreamPlayer: $coordinator.showingStreamPlayer,
                 showingSettings: $showingSettings
             )
         } detail: {
@@ -283,7 +282,7 @@ public struct MainSplitView: View {
                     showingFavorites = true
                     return nil
                 case 32: // 'U' -> Audio Stream
-                    showingStreamPlayer = true
+                    coordinator.showingStreamPlayer = true
                     return nil
                 case 43: // ',' -> Settings
                     showingSettings = true

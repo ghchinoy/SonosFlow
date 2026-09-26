@@ -392,4 +392,203 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertEqual(settings.customPresets.count, 0)
         XCTAssertFalse(settings.allPresets.contains(where: { $0.url == custom.url }))
     }
+
+    // MARK: - Mock Service & Coordinator Tests
+
+    @MainActor
+    func testCoordinatorMultiPageQueuePagination() async {
+        let mock = MockSonosService()
+        let settings = AppSettings(defaults: UserDefaults(suiteName: "PaginationTest")!)
+        let coordinator = SonosCoordinator(sonosService: mock, settings: settings)
+
+        let group = TopologyGroup(
+            id: "G1",
+            coordinatorUUID: "C1",
+            isPair: false,
+            members: [TopologyMember(uuid: "C1", roomName: "Office", ip: "192.168.1.50", isCoordinator: true)]
+        )
+        coordinator.selectedGroup = group
+
+        // Prepare 2 batches (100 items + 88 items = 188 items)
+        let batch1Items = (1...100).map { QueueItem(position: $0, trackID: "Q:0/\($0)", title: "Track \($0)", artist: "Artist \($0)") }
+        let batch2Items = (101...188).map { QueueItem(position: $0, trackID: "Q:0/\($0)", title: "Track \($0)", artist: "Artist \($0)") }
+
+        mock.queueBatches[0] = QueueResult(items: batch1Items, returned: 100, totalMatches: 188, startIndex: 0)
+        mock.queueBatches[100] = QueueResult(items: batch2Items, returned: 88, totalMatches: 188, startIndex: 100)
+
+        await coordinator.refreshQueue(ip: "192.168.1.50")
+
+        XCTAssertEqual(coordinator.queueItems.count, 188)
+        XCTAssertEqual(coordinator.queueTotalMatches, 188)
+        XCTAssertEqual(coordinator.queueItems.first?.title, "Track 1")
+        XCTAssertEqual(coordinator.queueItems.last?.title, "Track 188")
+    }
+
+    @MainActor
+    func testCoordinatorTopologyFailover() async {
+        let mock = MockSonosService()
+        let settings = AppSettings(defaults: UserDefaults(suiteName: "FailoverTest")!)
+        let coordinator = SonosCoordinator(sonosService: mock, settings: settings)
+
+        // Speakers: Move 2 (portable) and Play:1 (stationary)
+        mock.speakersToReturn = [
+            SonosDevice(name: "Move 2", ip: "192.168.1.120", rinconID: "R1", modelName: "Sonos Move 2"),
+            SonosDevice(name: "Office", ip: "192.168.1.99", rinconID: "R2", modelName: "Sonos Play:1")
+        ]
+
+        // Candidate 1 (Office Play:1) will succeed, even if Move 2 is down
+        mock.topologyFailIPs = ["192.168.1.120"]
+        mock.topologyToReturn = TopologyResult(count: 1, groups: [
+            TopologyGroup(id: "G1", coordinatorUUID: "C1", isPair: false, members: [
+                TopologyMember(uuid: "C1", roomName: "Office", ip: "192.168.1.99", isCoordinator: true)
+            ])
+        ])
+
+        // Connect server status so refreshAll doesn't short-circuit
+        coordinator.serverStatus = .connected(serverInfo: MCPServerInfo(name: "test"), tools: [])
+
+        await coordinator.refreshAll()
+
+        XCTAssertEqual(coordinator.groups.count, 1)
+        XCTAssertEqual(coordinator.selectedGroup?.displayName, "Office")
+        XCTAssertNil(coordinator.errorMessage)
+    }
+
+    @MainActor
+    func testCoordinatorOptimisticRemoveAndRollback() async {
+        let mock = MockSonosService()
+        let settings = AppSettings(defaults: UserDefaults(suiteName: "RollbackTest")!)
+        let coordinator = SonosCoordinator(sonosService: mock, settings: settings)
+
+        let group = TopologyGroup(
+            id: "G1",
+            coordinatorUUID: "C1",
+            isPair: false,
+            members: [TopologyMember(uuid: "C1", roomName: "Office", ip: "192.168.1.50", isCoordinator: true)]
+        )
+        coordinator.selectedGroup = group
+
+        let item1 = QueueItem(position: 1, trackID: "Q:0/1", title: "Track A", artist: "Artist A")
+        let item2 = QueueItem(position: 2, trackID: "Q:0/2", title: "Track B", artist: "Artist B")
+        coordinator.queueItems = [item1, item2]
+        coordinator.queueTotalMatches = 2
+
+        // Simulate server failure
+        mock.shouldFailRemove = true
+        await coordinator.removeQueueItem(item1)
+
+        // Should have rolled back
+        XCTAssertEqual(coordinator.queueItems.count, 2)
+        XCTAssertNotNil(coordinator.errorMessage)
+    }
+
+    @MainActor
+    func testCoordinatorVolumeJitterProtection() async {
+        let mock = MockSonosService()
+        let settings = AppSettings(defaults: UserDefaults(suiteName: "JitterTest")!)
+        let coordinator = SonosCoordinator(sonosService: mock, settings: settings)
+
+        let group = TopologyGroup(
+            id: "G1",
+            coordinatorUUID: "C1",
+            isPair: false,
+            members: [TopologyMember(uuid: "C1", roomName: "Office", ip: "192.168.1.50", isCoordinator: true)]
+        )
+        coordinator.selectedGroup = group
+
+        // User sets volume to 75
+        coordinator.setVolume(75.0)
+        XCTAssertEqual(coordinator.volume, 75.0)
+
+        // Immediate background poll returns stale volume (e.g. 20)
+        mock.nowPlayingToReturn = NowPlayingResult(ip: "192.168.1.50", state: "PLAYING", volume: 20)
+        await coordinator.refreshNowPlaying(ip: "192.168.1.50")
+
+        // Volume should NOT be overwritten because user adjusted it within 1.2s!
+        XCTAssertEqual(coordinator.volume, 75.0)
+    }
+
+    @MainActor
+    func testCoordinatorMuteToggle() {
+        let mock = MockSonosService()
+        let settings = AppSettings(defaults: UserDefaults(suiteName: "MuteTest")!)
+        let coordinator = SonosCoordinator(sonosService: mock, settings: settings)
+
+        let group = TopologyGroup(
+            id: "G1",
+            coordinatorUUID: "C1",
+            isPair: false,
+            members: [TopologyMember(uuid: "C1", roomName: "Office", ip: "192.168.1.50", isCoordinator: true)]
+        )
+        coordinator.selectedGroup = group
+
+        coordinator.setVolume(45.0)
+        XCTAssertFalse(coordinator.isMuted)
+
+        // Toggle mute: should set volume to 0
+        coordinator.toggleMute()
+        XCTAssertTrue(coordinator.isMuted)
+        XCTAssertEqual(coordinator.volume, 0.0)
+
+        // Toggle unmute: should restore 45.0
+        coordinator.toggleMute()
+        XCTAssertFalse(coordinator.isMuted)
+        XCTAssertEqual(coordinator.volume, 45.0)
+    }
+}
+
+// MARK: - Mock Service Definition
+
+class MockSonosService: SonosService, @unchecked Sendable {
+    var speakersToReturn: [SonosDevice] = []
+    var topologyFailIPs: Set<String> = []
+    var topologyToReturn: TopologyResult?
+    var nowPlayingToReturn: NowPlayingResult?
+    var queueBatches: [Int: QueueResult] = [:]
+    var shouldFailRemove: Bool = false
+    var shouldFailClear: Bool = false
+    var lastSetVolume: Int?
+    var lastRemovedTrack: Int?
+
+    override func listSpeakers(refresh: Bool = false) async throws -> [SonosDevice] {
+        return speakersToReturn
+    }
+
+    override func getTopology(ip: String) async throws -> TopologyResult {
+        if topologyFailIPs.contains(ip) {
+            throw NSError(domain: "Mock", code: 500, userInfo: [NSLocalizedDescriptionKey: "Simulated failure for \(ip)"])
+        }
+        if let top = topologyToReturn {
+            return top
+        }
+        throw NSError(domain: "Mock", code: 404, userInfo: nil)
+    }
+
+    override func getNowPlaying(ip: String) async throws -> NowPlayingResult {
+        return nowPlayingToReturn ?? NowPlayingResult(ip: ip, state: "PLAYING", volume: 20)
+    }
+
+    override func getQueue(ip: String, start: Int = 0, count: Int = 100) async throws -> QueueResult {
+        if let batch = queueBatches[start] {
+            return batch
+        }
+        return QueueResult(items: [], returned: 0, totalMatches: 0, startIndex: start)
+    }
+
+    override func setVolume(ip: String, volume: Int) async throws {
+        lastSetVolume = volume
+    }
+
+    override func removeTrackFromQueue(ip: String, track: Int, count: Int = 1) async throws {
+        if shouldFailRemove {
+            throw NSError(domain: "Mock", code: 500, userInfo: [NSLocalizedDescriptionKey: "Simulated removal failure"])
+        }
+        lastRemovedTrack = track
+    }
+
+    override func clearQueue(ip: String) async throws {
+        if shouldFailClear {
+            throw NSError(domain: "Mock", code: 500, userInfo: [NSLocalizedDescriptionKey: "Simulated clear failure"])
+        }
+    }
 }

@@ -100,7 +100,6 @@ public final class AppSettings: ObservableObject {
 
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
         let candidates = [
-            "/Users/ghchinoy/projects/homectl/bin/mcp-sonos",
             "\(homeDir)/projects/homectl/bin/mcp-sonos",
             "\(homeDir)/go/bin/mcp-sonos",
             "/usr/local/bin/mcp-sonos",
@@ -113,6 +112,6 @@ public final class AppSettings: ObservableObject {
             }
         }
 
-        return "/Users/ghchinoy/projects/homectl/bin/mcp-sonos"
+        return "\(homeDir)/projects/homectl/bin/mcp-sonos"
     }
 }
