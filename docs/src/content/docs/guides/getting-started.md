@@ -40,7 +40,6 @@ make run
 ## Binary Path Configuration
 
 By default, SonosFlow looks for `mcp-sonos` at:
-- `/Users/ghchinoy/projects/homectl/bin/mcp-sonos`
 - `~/projects/homectl/bin/mcp-sonos`
 - `~/go/bin/mcp-sonos`
 - `/usr/local/bin/mcp-sonos`
@@ -55,3 +54,6 @@ When SonosFlow opens:
 2. It queries `sonos_list_speakers` and `sonos_get_topology` to construct the list of active zone groups in your sidebar.
 3. It automatically selects the first actively playing group (or your previously remembered group in `UserDefaults`).
 4. It loads the current track, master volume, playback queue, and pinned favorites.
+
+![SonosFlow Main Window](../../../assets/screenshots/main-window.webp)
+*Figure 1: SonosFlow main window featuring room selection sidebar, hero now-playing card with album artwork, and full playback queue.*

@@ -15,6 +15,9 @@ SonosFlow is an independent open-source community tool. It is **not** an officia
 
 SonosFlow is built with Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. Similar to [LyriaFlow](https://github.com/ghchinoy/LyriaFlow), it interfaces directly with the [`homectl-sonos`](https://ghchinoy.github.io/homectl/) binary over standard input and output pipes conforming to the Model Context Protocol (MCP) standard `2024-11-05`.
 
+![SonosFlow Main Window](../../../assets/screenshots/main-window.webp)
+*Figure 1: The main interface featuring the room sidebar, hero now-playing card, and full playback queue.*
+
 ---
 
 ## 2. Speaker Discovery & Multi-Room Groups
@@ -60,6 +63,9 @@ SonosFlow provides complete control over the Sonos playback queue for any select
 
 ## 6. Mode A Floating MiniPlayer (`⌘M`)
 
+![Mode A Floating MiniPlayer](../../../assets/screenshots/miniplayer.webp)
+*Figure 2: Mode A floating miniplayer with compact album artwork, room badge, playback progress, and transport controls.*
+
 Press **`⌘M`** to collapse SonosFlow into an ultra-compact floating desktop widget:
 
 - **Dynamic Resizing**: Animates smoothly down to **`340×110 pt`**.
@@ -73,6 +79,9 @@ Press **`⌘M`** to collapse SonosFlow into an ultra-compact floating desktop wi
 
 ## 7. Menu Bar Extra Companion
 
+![Menu Bar Extra Companion](../../../assets/screenshots/menubar-extra.webp)
+*Figure 3: The Menu Bar Extra companion card showing room selector, now playing track, volume, and pinned favorites.*
+
 Even when the main window is closed, the status bar icon remains available:
 
 - Icon shows live state: sound waves (`speaker.wave.3.fill`) when playing, speaker (`hifispeaker`) when idle.
@@ -82,6 +91,9 @@ Even when the main window is closed, the status bar icon remains available:
 ---
 
 ## 8. Audio Stream Player & Custom Presets (`⌘U`)
+
+![Audio Stream Player](../../../assets/screenshots/audio-stream.webp)
+*Figure 4: The Audio Stream Player modal dialog with direct URL entry, curated presets, and custom preset saving.*
 
 Press **`⌘U`** or click **Stream** in the sidebar:
 

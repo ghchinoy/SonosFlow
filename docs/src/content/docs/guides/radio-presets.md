@@ -9,6 +9,9 @@ SonosFlow allows you to stream arbitrary internet radio streams, podcasts, and I
 
 ## Opening the Stream Player
 
+![Audio Stream Player](../../../assets/screenshots/audio-stream.webp)
+*Figure: The Audio Stream Player modal dialog with direct URL entry, curated presets, and save action.*
+
 Press **`⌘U`**, click the **Stream** button in the sidebar footer, or select **Playback → Play Audio Stream...** in the macOS menu bar.
 
 ### Automatic Clipboard Detection

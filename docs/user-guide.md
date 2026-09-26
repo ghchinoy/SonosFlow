@@ -33,6 +33,10 @@ This guide covers the operation, architecture, and feature workflows of **SonosF
 
 SonosFlow is built with Swift 5.9+ and SwiftUI for macOS 14 Sonoma and later. Similar to [LyriaFlow](https://github.com/ghchinoy/LyriaFlow), it interfaces directly with the [`homectl-sonos`](https://ghchinoy.github.io/homectl/) binary over standard input and standard output pipes conforming to the Model Context Protocol (MCP) standard `2024-11-05`.
 
+<p align="center">
+  <img src="src/assets/screenshots/main-window.webp" alt="SonosFlow Main Window" width="800">
+</p>
+
 ```
 ┌────────────────────────────────────────────────────────┐
 │                      SonosFlow                         │
@@ -184,6 +188,10 @@ When a track plays, its album artwork is stored in the local two-tier cache (`~/
 
 ## 7. Mode A Floating MiniPlayer
 
+<p align="center">
+  <img src="src/assets/screenshots/miniplayer.webp" alt="SonosFlow Mode A Floating MiniPlayer" width="450">
+</p>
+
 Press **`⌘M`** to collapse SonosFlow into an ultra-compact floating desktop widget.
 
 ### Widget Behaviors
@@ -198,6 +206,10 @@ Press **`⌘M`** to collapse SonosFlow into an ultra-compact floating desktop wi
 
 ## 8. Menu Bar Extra Companion
 
+<p align="center">
+  <img src="src/assets/screenshots/menubar-extra.webp" alt="SonosFlow Menu Bar Extra Companion" width="350">
+</p>
+
 Even when the main window is closed, SonosFlow remains accessible in the macOS status bar.
 
 ### Features
@@ -211,6 +223,10 @@ Even when the main window is closed, SonosFlow remains accessible in the macOS s
 ---
 
 ## 9. Audio Stream Player & Radio Presets
+
+<p align="center">
+  <img src="src/assets/screenshots/audio-stream.webp" alt="SonosFlow Audio Stream Player" width="550">
+</p>
 
 Press **`⌘U`** or click **Stream** in the sidebar to stream live audio directly into any room using `sonos_play_stream`.
 

@@ -172,12 +172,20 @@ public struct MainSplitView: View {
 
     private func updateProxyIcon() {
         guard let window = currentWindow else { return }
+        if coordinator.isMiniPlayerMode {
+            window.representedURL = nil
+            window.title = ""
+            return
+        }
         Task {
             if let artURL = coordinator.currentArtworkURL,
                let fileURL = await ArtworkCache.shared.cachedFileURL(for: artURL) {
                 window.representedURL = fileURL
                 if let track = coordinator.nowPlaying, let title = track.title, !title.isEmpty {
                     window.title = "\(title) — \(track.artist ?? "")"
+                }
+                if let img = await ArtworkCache.shared.image(for: artURL) {
+                    window.standardWindowButton(.documentIconButton)?.image = img
                 }
             } else {
                 window.representedURL = nil
@@ -196,8 +204,11 @@ public struct MainSplitView: View {
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             window.minSize = NSSize(width: 320, height: 110)
             window.maxSize = NSSize(width: 480, height: 110)
+            window.title = ""
+            window.representedURL = nil
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
+            window.styleMask.insert(.fullSizeContentView)
             window.isMovableByWindowBackground = true
 
             let miniWidth: CGFloat = 340
@@ -209,6 +220,7 @@ public struct MainSplitView: View {
         } else {
             window.level = .normal
             window.collectionBehavior = []
+            window.styleMask.remove(.fullSizeContentView)
             window.minSize = NSSize(width: 860, height: 620)
             window.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
             window.titleVisibility = .visible
@@ -219,6 +231,7 @@ public struct MainSplitView: View {
                 window.setFrame(savedWindowFrame, display: true, animate: true)
                 savedWindowFrame = .zero
             }
+            updateProxyIcon()
         }
     }
 

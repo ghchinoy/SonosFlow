@@ -12,6 +12,9 @@ SonosFlow registers a native macOS `MenuBarExtra` companion that remains availab
 
 ## Menu Bar Controls
 
+![SonosFlow Menu Bar Extra](../../../assets/screenshots/menubar-extra.webp)
+*Figure: The Menu Bar Extra companion card showing room selector, now playing track, volume, and pinned favorites.*
+
 Clicking the menu bar icon reveals a compact, lightweight control card:
 
 1. **Active Room Switcher**:

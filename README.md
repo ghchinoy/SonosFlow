@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  <img src="docs/src/assets/screenshots/main-window.webp" alt="SonosFlow Main Window" width="760">
+</p>
+
+<p align="center">
   <a href="#disclaimer">Disclaimer</a> •
   <a href="#prerequisites--dependency">Prerequisites</a> •
   <a href="#quick-start">Quick Start</a> •

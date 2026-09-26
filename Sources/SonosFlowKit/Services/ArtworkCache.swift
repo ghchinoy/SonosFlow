@@ -57,6 +57,7 @@ public actor ArtworkCache {
            let data = try? Data(contentsOf: file),
            let img = NSImage(data: data) {
             memoryCache.setObject(img, forKey: url as NSURL)
+            NSWorkspace.shared.setIcon(img, forFile: file.path, options: [])
             return img
         }
 
@@ -75,9 +76,10 @@ public actor ArtworkCache {
                     return nil
                 }
 
-                // Write to disk cache atomically
+                // Write to disk cache atomically and apply custom file icon
                 try? fileManager.createDirectory(at: self.diskCacheDirectory, withIntermediateDirectories: true)
                 try? data.write(to: file, options: .atomic)
+                NSWorkspace.shared.setIcon(image, forFile: file.path, options: [])
 
                 return image
             } catch {

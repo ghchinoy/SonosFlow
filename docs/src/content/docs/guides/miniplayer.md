@@ -27,6 +27,9 @@ You can toggle between modes in any of the following ways:
 - **Metadata**: High-contrast title and artist typography with truncation.
 - **Mini Transport**: Compact Prev, Play/Pause, Next, and volume step controls.
 
+![Mode A Floating MiniPlayer](../../../assets/screenshots/miniplayer.webp)
+*Figure: Mode A floating miniplayer with compact album artwork, room badge, playback progress, and transport controls.*
+
 ---
 
 ## Title Bar Proxy Icon & Drag-and-Drop
