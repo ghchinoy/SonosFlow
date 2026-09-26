@@ -535,6 +535,127 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertFalse(coordinator.isMuted)
         XCTAssertEqual(coordinator.volume, 45.0)
     }
+
+    // MARK: - Dual-Engine & Capability Gating Tests
+
+    func testServerCapabilitiesLocal() {
+        let tools: Set<String> = [
+            "sonos_list_speakers",
+            "sonos_get_topology",
+            "sonos_get_now_playing",
+            "sonos_get_queue",
+            "sonos_control",
+            "sonos_set_volume",
+            "sonos_list_favorites",
+            "sonos_play_favorite",
+            "sonos_play_stream",
+            "sonos_queue_edit"
+        ]
+        let caps = ServerCapabilities(engine: .local, rawToolNames: tools)
+        XCTAssertEqual(caps.engine, .local)
+        XCTAssertTrue(caps.supportsQueue)
+        XCTAssertTrue(caps.supportsQueueEdit)
+        XCTAssertTrue(caps.supportsAudioStreams)
+        XCTAssertTrue(caps.supportsFavorites)
+        XCTAssertTrue(caps.supportsVolumeControl)
+        XCTAssertFalse(caps.supportsHomeTheaterEQ)
+        XCTAssertFalse(caps.supportsShuffleRepeat)
+    }
+
+    func testServerCapabilitiesCloud() {
+        let cloudTools: Set<String> = [
+            "get_households_and_groups_and_players",
+            "get_now_playing",
+            "resume",
+            "pause",
+            "skip_to_next_track",
+            "skip_to_previous_track",
+            "seek",
+            "get_group_volume",
+            "set_group_volume",
+            "set_group_mute",
+            "get_sonos_favorites",
+            "play_sonos_favorite",
+            "get_shuffle_repeat_crossfade",
+            "set_shuffle_repeat_crossfade",
+            "get_night_sound_and_speech_enhancement",
+            "set_night_sound_and_speech_enhancement"
+        ]
+        let caps = ServerCapabilities(engine: .cloud, rawToolNames: cloudTools)
+        XCTAssertEqual(caps.engine, .cloud)
+        XCTAssertFalse(caps.supportsQueue, "Official cloud must have zero queue support")
+        XCTAssertFalse(caps.supportsQueueEdit)
+        XCTAssertFalse(caps.supportsAudioStreams)
+        XCTAssertTrue(caps.supportsFavorites)
+        XCTAssertTrue(caps.supportsVolumeControl)
+        XCTAssertTrue(caps.supportsShuffleRepeat)
+        XCTAssertTrue(caps.supportsHomeTheaterEQ)
+    }
+
+    func testSonosTargetMapping() {
+        let localGroup = TopologyGroup(
+            id: "G1",
+            coordinatorUUID: "C1",
+            isPair: false,
+            members: [TopologyMember(uuid: "C1", roomName: "Office", ip: "192.168.4.99", isCoordinator: true)]
+        )
+        XCTAssertEqual(localGroup.target.localIP, "192.168.4.99")
+
+        let cloudGroup = TopologyGroup(
+            id: "G_CLOUD_1",
+            coordinatorUUID: "P1",
+            isPair: false,
+            members: [TopologyMember(uuid: "P1", roomName: "Kitchen", ip: nil, isCoordinator: true)],
+            householdId: "HH_123"
+        )
+        XCTAssertNil(cloudGroup.target.localIP)
+        XCTAssertEqual(cloudGroup.target.householdId, "HH_123")
+        XCTAssertEqual(cloudGroup.target.groupId, "G_CLOUD_1")
+    }
+
+    func testUpNextTrackDecoding() throws {
+        let json = """
+        {
+            "ip": "G1",
+            "state": "PLAYING",
+            "volume": 25,
+            "title": "Song 1",
+            "artist": "Artist 1",
+            "up_next": {
+                "title": "Upcoming Hit",
+                "artist": "Future Artist",
+                "album": "Next Album",
+                "album_art_uri": "https://example.com/next.jpg",
+                "duration": "3:45"
+            }
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let np = try JSONDecoder().decode(NowPlayingResult.self, from: data)
+        XCTAssertEqual(np.title, "Song 1")
+        XCTAssertNotNil(np.upNext)
+        XCTAssertEqual(np.upNext?.title, "Upcoming Hit")
+        XCTAssertEqual(np.upNext?.artist, "Future Artist")
+        XCTAssertEqual(np.upNext?.albumArtURI, "https://example.com/next.jpg")
+    }
+
+    @MainActor
+    func testCoordinatorEngineSwitching() async {
+        let settings = AppSettings(defaults: UserDefaults(suiteName: "EngineSwitchTest")!)
+        let coordinator = SonosCoordinator(settings: settings)
+        XCTAssertEqual(coordinator.backend.engine, .local)
+        XCTAssertTrue(coordinator.capabilities.supportsQueue)
+
+        await coordinator.switchEngine(to: .cloud)
+        XCTAssertEqual(coordinator.backend.engine, .cloud)
+        XCTAssertFalse(coordinator.capabilities.supportsQueue)
+        XCTAssertFalse(coordinator.capabilities.supportsAudioStreams)
+        XCTAssertTrue(coordinator.queueItems.isEmpty)
+
+        await coordinator.switchEngine(to: .local)
+        XCTAssertEqual(coordinator.backend.engine, .local)
+        XCTAssertTrue(coordinator.capabilities.supportsQueue)
+    }
 }
 
 // MARK: - Mock Service Definition

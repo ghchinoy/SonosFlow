@@ -124,7 +124,7 @@ public struct MenuBarView: View {
             }
 
             // Quick Pinned Favorites
-            if !coordinator.favorites.isEmpty {
+            if coordinator.capabilities.supportsFavorites && !coordinator.favorites.isEmpty {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 4) {

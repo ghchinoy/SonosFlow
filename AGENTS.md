@@ -40,3 +40,17 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
 - For debugging, use raw command without rtk prefix
 - `rtk proxy <cmd>` runs command without filtering but tracks usage
 <!-- /headroom:rtk-instructions -->
+
+# SonosFlow Agent Guidelines
+
+## ⚠️ Official Sonos 27mcp Tool Inventory Watchdog
+Sonos explicitly notes in their official hosted MCP server documentation that tool names, signatures, and capabilities **"will evolve without notice for agentic use"**.
+
+Whenever updating this application, changing backends, or doing maintenance:
+1. **Periodically Run the Exploration Spike**:
+   ```bash
+   make official-spike
+   ```
+2. **Review Schema Differences**: Check `git diff docs/official-mcp-tools.json` to see if Sonos added, renamed, or deprecated any tools at `https://mcp.ws.sonos.com/mcp`.
+3. **Verify Feature Gating**: Never hardcode assumptions that a specific cloud tool exists. Always route feature availability through `ServerCapabilities` and `tools/list` negotiation so missing or renamed tools gracefully degrade rather than crash.
+

@@ -13,6 +13,14 @@ public struct QueueListView: View {
     }
 
     public var body: some View {
+        if !coordinator.capabilities.supportsQueue {
+            upNextCardView
+        } else {
+            queueListView
+        }
+    }
+
+    private var queueListView: some View {
         VStack(spacing: 0) {
             // Queue Header Bar
             headerBar
@@ -274,6 +282,137 @@ public struct QueueListView: View {
             return item.title == npTitle
         }
         return false
+    }
+
+    private var upNextCardView: some View {
+        VStack(spacing: 0) {
+            // Header bar
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "forward.end.fill")
+                        .foregroundColor(.accentColor)
+                    Text("UP NEXT")
+                        .font(.headline)
+                }
+
+                Spacer()
+
+                HStack(spacing: 6) {
+                    Text("Sonos Cloud Mode")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.blue.opacity(0.12))
+                        .foregroundColor(.blue)
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial)
+
+            Divider()
+
+            if let next = coordinator.upNextTrack ?? coordinator.nowPlaying?.upNext {
+                VStack(spacing: 16) {
+                    Spacer()
+
+                    HStack(spacing: 16) {
+                        // Artwork
+                        Group {
+                            if let artURI = next.albumArtURI, let url = URL(string: artURI) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image.resizable().aspectRatio(contentMode: .fill)
+                                    default:
+                                        Color.secondary.opacity(0.15)
+                                    }
+                                }
+                            } else {
+                                ZStack {
+                                    Color.secondary.opacity(0.15)
+                                    Image(systemName: "music.note")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Up Next in Queue")
+                                .font(.caption2.weight(.bold))
+                                .foregroundColor(.accentColor)
+
+                            Text(next.title)
+                                .font(.title3.weight(.bold))
+                                .lineLimit(1)
+
+                            if let artist = next.artist, !artist.isEmpty {
+                                Text(artist)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+
+                            if let album = next.album, !album.isEmpty {
+                                Text(album)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary.opacity(0.8))
+                                    .lineLimit(1)
+                            }
+                        }
+
+                        Spacer()
+
+                        Button(action: {
+                            Task { await coordinator.next() }
+                        }) {
+                            Label("Skip to Track", systemImage: "forward.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.regular)
+                    }
+                    .padding(20)
+                    .background(Color.primary.opacity(0.03))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 24)
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text("Sonos 27mcp official cloud provides single-track Up Next preview. Full 188-track drag-and-drop queue management requires the local homectl engine.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 24)
+
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                VStack(spacing: 12) {
+                    Spacer()
+                    Image(systemName: "music.quarternote.3")
+                        .font(.system(size: 36))
+                        .foregroundColor(.secondary.opacity(0.4))
+                    Text("No Upcoming Track")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    Text("The official Sonos cloud server only reports the next track when a cloud playlist or radio station is queued.")
+                        .font(.caption)
+                        .foregroundColor(.secondary.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
     }
 }
 

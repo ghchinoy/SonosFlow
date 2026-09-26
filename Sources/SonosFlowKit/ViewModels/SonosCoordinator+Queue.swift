@@ -4,7 +4,21 @@ extension SonosCoordinator {
     // MARK: - Queue Management
 
     public func refreshQueue(ip: String? = nil) async {
-        guard let targetIP = ip ?? selectedGroup?.coordinatorIP else { return }
+        guard capabilities.supportsQueue else {
+            self.queueItems = []
+            self.queueTotalMatches = 0
+            return
+        }
+
+        let target: SonosTarget
+        if let ip = ip, !ip.isEmpty {
+            target = .local(ip)
+        } else if let group = selectedGroup {
+            target = group.target
+        } else {
+            return
+        }
+
         isLoadingQueue = true
         defer { isLoadingQueue = false }
 
@@ -16,7 +30,7 @@ extension SonosCoordinator {
             let maxTracks = 1000 // Safety cap
 
             repeat {
-                let q = try await sonosService.getQueue(ip: targetIP, start: startIndex, count: batchSize)
+                let q = try await backend.getQueue(target: target, start: startIndex, count: batchSize)
                 totalMatches = q.totalMatches
                 allItems.append(contentsOf: q.items)
                 startIndex += q.returned
@@ -28,23 +42,26 @@ extension SonosCoordinator {
 
             self.queueItems = allItems
             self.queueTotalMatches = totalMatches
-            AppLogger.shared.log("Loaded \(allItems.count) of \(totalMatches) queue tracks on \(targetIP)", category: "COORDINATOR")
+            let desc = target.localIP ?? target.groupId ?? "active target"
+            AppLogger.shared.log("Loaded \(allItems.count) of \(totalMatches) queue tracks on \(desc)", category: "COORDINATOR")
         } catch {
-            AppLogger.shared.warning("Failed to refresh queue for \(targetIP): \(error)", category: "COORDINATOR")
+            let desc = target.localIP ?? target.groupId ?? "active target"
+            AppLogger.shared.warning("Failed to refresh queue for \(desc): \(error)", category: "COORDINATOR")
         }
     }
 
     public func playQueueItem(_ item: QueueItem) async {
-        guard let ip = selectedGroup?.coordinatorIP else { return }
+        guard capabilities.supportsQueue else { return }
+        guard let target = selectedGroup?.target else { return }
         do {
-            AppLogger.shared.log("Seeking track \(item.position) ('\(item.title)') on \(ip)", category: "COORDINATOR")
-            try await sonosService.seekTrack(ip: ip, track: item.position)
-            // Immediately start playing if paused
+            let desc = target.localIP ?? target.groupId ?? "target"
+            AppLogger.shared.log("Seeking track \(item.position) ('\(item.title)') on \(desc)", category: "COORDINATOR")
+            try await backend.seekTrack(target: target, track: item.position)
             if nowPlaying?.isPlaying != true {
-                try? await sonosService.play(ip: ip)
+                try? await backend.play(target: target)
             }
             try? await Task.sleep(nanoseconds: 300_000_000)
-            await refreshNowPlaying(ip: ip)
+            await refreshNowPlaying()
         } catch {
             errorMessage = "Failed to play queue track: \(error.localizedDescription)"
             AppLogger.shared.error("playQueueItem failed: \(error)", category: "COORDINATOR")
@@ -52,7 +69,8 @@ extension SonosCoordinator {
     }
 
     public func removeQueueItem(_ item: QueueItem) async {
-        guard let ip = selectedGroup?.coordinatorIP else { return }
+        guard capabilities.supportsQueueEdit else { return }
+        guard let target = selectedGroup?.target else { return }
         let priorItems = self.queueItems
         let priorTotal = self.queueTotalMatches
 
@@ -63,11 +81,12 @@ extension SonosCoordinator {
         }
 
         do {
-            AppLogger.shared.log("Removing track \(item.position) ('\(item.title)') from queue on \(ip)", category: "COORDINATOR")
-            try await sonosService.removeTrackFromQueue(ip: ip, track: item.position)
+            let desc = target.localIP ?? target.groupId ?? "target"
+            AppLogger.shared.log("Removing track \(item.position) ('\(item.title)') from queue on \(desc)", category: "COORDINATOR")
+            try await backend.removeTrackFromQueue(target: target, track: item.position, count: 1)
             try? await Task.sleep(nanoseconds: 200_000_000)
-            await refreshQueue(ip: ip)
-            await refreshNowPlaying(ip: ip)
+            await refreshQueue()
+            await refreshNowPlaying()
         } catch {
             // Rollback on failure
             self.queueItems = priorItems
@@ -78,7 +97,8 @@ extension SonosCoordinator {
     }
 
     public func moveQueueItems(from source: IndexSet, to destination: Int) async {
-        guard let ip = selectedGroup?.coordinatorIP, let sourceIdx = source.first else { return }
+        guard capabilities.supportsQueueEdit else { return }
+        guard let target = selectedGroup?.target, let sourceIdx = source.first else { return }
         let priorItems = self.queueItems
 
         // Optimistic local reorder
@@ -91,15 +111,16 @@ extension SonosCoordinator {
         let insertBefore = destination + 1
 
         do {
-            AppLogger.shared.log("Reordering queue on \(ip): track \(startingIndex) -> before \(insertBefore)", category: "COORDINATOR")
-            try await sonosService.reorderQueue(
-                ip: ip,
+            let desc = target.localIP ?? target.groupId ?? "target"
+            AppLogger.shared.log("Reordering queue on \(desc): track \(startingIndex) -> before \(insertBefore)", category: "COORDINATOR")
+            try await backend.reorderQueue(
+                target: target,
                 startingIndex: startingIndex,
                 numberOfTracks: source.count,
                 insertBefore: insertBefore
             )
             try? await Task.sleep(nanoseconds: 300_000_000)
-            await refreshQueue(ip: ip)
+            await refreshQueue()
         } catch {
             // Rollback on failure
             self.queueItems = priorItems
@@ -109,12 +130,14 @@ extension SonosCoordinator {
     }
 
     public func playNextInQueue(_ item: QueueItem) async {
-        guard let ip = selectedGroup?.coordinatorIP else { return }
+        guard capabilities.supportsQueueEdit else { return }
+        guard let target = selectedGroup?.target else { return }
         do {
-            AppLogger.shared.log("Moving track \(item.position) ('\(item.title)') to play next on \(ip)", category: "COORDINATOR")
-            try await sonosService.reorderToPlayNext(ip: ip, track: item.position)
+            let desc = target.localIP ?? target.groupId ?? "target"
+            AppLogger.shared.log("Moving track \(item.position) ('\(item.title)') to play next on \(desc)", category: "COORDINATOR")
+            try await backend.reorderToPlayNext(target: target, track: item.position, count: 1)
             try? await Task.sleep(nanoseconds: 300_000_000)
-            await refreshQueue(ip: ip)
+            await refreshQueue()
         } catch {
             errorMessage = "Failed to move track to play next: \(error.localizedDescription)"
             AppLogger.shared.error("playNextInQueue failed: \(error)", category: "COORDINATOR")
@@ -122,7 +145,8 @@ extension SonosCoordinator {
     }
 
     public func clearQueue() async {
-        guard let ip = selectedGroup?.coordinatorIP else { return }
+        guard capabilities.supportsQueueEdit else { return }
+        guard let target = selectedGroup?.target else { return }
         let priorItems = self.queueItems
         let priorTotal = self.queueTotalMatches
 
@@ -131,11 +155,12 @@ extension SonosCoordinator {
         self.queueTotalMatches = 0
 
         do {
-            AppLogger.shared.log("Clearing all tracks from queue on \(ip)", category: "COORDINATOR")
-            try await sonosService.clearQueue(ip: ip)
+            let desc = target.localIP ?? target.groupId ?? "target"
+            AppLogger.shared.log("Clearing all tracks from queue on \(desc)", category: "COORDINATOR")
+            try await backend.clearQueue(target: target)
             try? await Task.sleep(nanoseconds: 200_000_000)
-            await refreshQueue(ip: ip)
-            await refreshNowPlaying(ip: ip)
+            await refreshQueue()
+            await refreshNowPlaying()
         } catch {
             // Rollback on failure
             self.queueItems = priorItems

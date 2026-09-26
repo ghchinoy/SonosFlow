@@ -76,17 +76,20 @@ public struct TopologyGroup: Codable, Identifiable, Hashable {
     public let coordinatorUUID: String
     public let isPair: Bool
     public let members: [TopologyMember]
+    public let householdId: String?
 
     public init(
         id: String,
         coordinatorUUID: String,
         isPair: Bool,
-        members: [TopologyMember]
+        members: [TopologyMember],
+        householdId: String? = nil
     ) {
         self.id = id
         self.coordinatorUUID = coordinatorUUID
         self.isPair = isPair
         self.members = members
+        self.householdId = householdId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -94,6 +97,15 @@ public struct TopologyGroup: Codable, Identifiable, Hashable {
         case coordinatorUUID = "coordinator_uuid"
         case isPair = "is_pair"
         case members
+        case householdId = "household_id"
+    }
+
+    /// Neutral target representation for backend dispatch
+    public var target: SonosTarget {
+        if let ip = coordinatorIP, !ip.isEmpty {
+            return .local(ip)
+        }
+        return .cloud(householdId: householdId ?? "", groupId: id)
     }
 
     /// Best human-readable name for the group (e.g. "Office", "Living Room + Kitchen")
@@ -144,6 +156,36 @@ public struct TopologyResult: Codable {
 
 // MARK: - Now Playing
 
+public struct UpNextTrack: Codable, Equatable, Hashable, Sendable {
+    public let title: String
+    public let artist: String?
+    public let album: String?
+    public let albumArtURI: String?
+    public let duration: String?
+
+    public init(
+        title: String,
+        artist: String? = nil,
+        album: String? = nil,
+        albumArtURI: String? = nil,
+        duration: String? = nil
+    ) {
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.albumArtURI = albumArtURI
+        self.duration = duration
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case artist
+        case album
+        case albumArtURI = "album_art_uri"
+        case duration
+    }
+}
+
 public struct NowPlayingResult: Codable, Equatable {
     public let ip: String
     public let state: String
@@ -159,6 +201,7 @@ public struct NowPlayingResult: Codable, Equatable {
     public let mediaURI: String?
     public let isFollower: Bool?
     public let coordinatorIP: String?
+    public let upNext: UpNextTrack?
 
     public init(
         ip: String,
@@ -174,7 +217,8 @@ public struct NowPlayingResult: Codable, Equatable {
         queueLength: Int? = nil,
         mediaURI: String? = nil,
         isFollower: Bool? = nil,
-        coordinatorIP: String? = nil
+        coordinatorIP: String? = nil,
+        upNext: UpNextTrack? = nil
     ) {
         self.ip = ip
         self.state = state
@@ -190,6 +234,7 @@ public struct NowPlayingResult: Codable, Equatable {
         self.mediaURI = mediaURI
         self.isFollower = isFollower
         self.coordinatorIP = coordinatorIP
+        self.upNext = upNext
     }
 
     enum CodingKeys: String, CodingKey {
@@ -207,6 +252,7 @@ public struct NowPlayingResult: Codable, Equatable {
         case mediaURI = "media_uri"
         case isFollower = "is_follower"
         case coordinatorIP = "coordinator_ip"
+        case upNext = "up_next"
     }
 
     public var isPlaying: Bool {

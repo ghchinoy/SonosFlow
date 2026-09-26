@@ -111,9 +111,9 @@ Captured live from `https://mcp.ws.sonos.com/mcp` and saved in `docs/official-mc
 
 ---
 
-## 4. Feasibility: Dual-Engine Control in SonosFlow
+## 4. Implemented Dual-Engine Control in SonosFlow
 
-Integrating Sonos 27mcp as an alternative control backend in `SonosFlow` is **fully feasible** and creates an attractive user choice:
+SonosFlow features a seamless **Dual-Engine architecture** allowing users to switch between the local edge-first engine and the official hosted cloud endpoint directly from Settings (`⌘,`):
 
 ```
                        ┌──────────────────────────────┐
@@ -136,16 +136,22 @@ Integrating Sonos 27mcp as an alternative control backend in `SonosFlow` is **fu
                        Local Sonos LAN          Sonos Cloud Broker
 ```
 
-### Proposed User Choice in Settings (`⌘,`):
-1. **Local Network (`homectl-sonos`) [Recommended Default]**:
-   - Zero login required.
-   - Ultra-low latency (<10ms).
-   - Direct local playback queue editing (`Q:0`).
-   - Works completely offline.
-2. **Sonos Cloud (`Sonos 27mcp Official`)**:
-   - Interactive "Sign In with Sonos" button using macOS `ASWebAuthenticationSession`.
-   - Control your system when connected to guest Wi-Fi, VPNs, or away from home.
-   - Access to cloud features: cross-service search, Night Sound, and Speech Enhancement.
+### Dynamic Feature Gating & User Experience
+
+Rather than hardcoding UI states to a backend name, SonosFlow dynamically inspects `tools/list` on connection and builds a `ServerCapabilities` registry:
+
+1. **Queue Management vs. Up Next Card**:
+   - **Local Engine**: Renders the complete 188-track drag-and-drop queue manager with position numbers, hover trash-can deletions, and "Play Next" context menus.
+   - **Cloud Engine**: The official Sonos cloud server has zero queue manipulation tools. SonosFlow replaces the queue pane with an **"Up Next" preview card** displaying the next announced song with album artwork and a "Skip to Track" action.
+2. **Audio Stream URL Player (`⌘U`)**:
+   - Supported and available on Local Engine.
+   - Automatically hidden in the sidebar and menu bar when connected to Sonos Cloud (since the cloud API does not support local UPnP audio streaming).
+3. **Engine Badges & Status**:
+   - The sidebar header displays a discrete `[LOCAL]` or `[CLOUD]` badge.
+   - In Cloud mode, group cards display cloud group identifiers rather than private local IP addresses.
+4. **Auth & Error Handling**:
+   - Sign in via browser OAuth 2.1 PKCE with token persistence in macOS Keychain.
+   - If cloud authorization expires or network drops, SonosFlow displays an error banner with **"Sign In"** and **"Use Local"** buttons, respecting user intent without surprising silent fallbacks.
 
 ---
 

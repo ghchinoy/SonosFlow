@@ -323,3 +323,24 @@ In Settings (`⌘,`):
 - **Storage Used**: Shows disk footprint (e.g. `24.8 MB (142 covers)`).
 - **Reveal in Finder**: Opens `~/Library/Caches/com.sonosflow.app/Artwork/`.
 - **Clear Cache**: Clears both memory and disk caches.
+
+---
+
+## 14. Dual-Engine Control & Feature Gating
+
+SonosFlow provides an interactive **Control Engine switch** in Settings (`⌘,`), allowing you to choose between the local edge-first engine and Sonos's official cloud hosted server.
+
+### 1. Local Engine (`homectl-sonos`) [Default]
+- **Zero Login**: Communicates via direct stdio pipes to the local Go binary.
+- **Ultra-low latency**: <10ms local network dispatch.
+- **Full Queue Management**: 188-track interactive queue, drag-and-drop reordering, hover deletion, and "Play Next".
+- **Audio Streams (`⌘U`)**: Direct local UPnP playback for any internet radio or podcast stream URL.
+
+### 2. Sonos Cloud (`Official 27mcp`)
+- **OAuth 2.1 PKCE**: Sign in with your Sonos account directly from Settings. Tokens are securely stored in the macOS Keychain.
+- **Remote / VPN Support**: Allows controlling your speakers across VLANs, guest networks, or while away from home.
+- **Dynamic Feature Gating**:
+  - The queue pane automatically transitions into an **"Up Next" preview card** showing the upcoming track announced by the cloud server.
+  - The Stream sidebar button and `⌘U` shortcut are cleanly hidden, as cloud APIs do not support local UPnP streams.
+  - Sidebar and header show a discrete `[CLOUD]` pill badge.
+- **Resilient Error Banners**: If cloud authentication expires or connectivity drops, SonosFlow displays an error banner with **Sign In** and **Use Local** buttons, giving you instant recovery without unprompted auto-switches.

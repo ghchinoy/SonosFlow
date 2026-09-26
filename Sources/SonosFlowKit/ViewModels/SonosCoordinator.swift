@@ -8,6 +8,7 @@ public final class SonosCoordinator: ObservableObject {
     @Published public var groups: [TopologyGroup] = []
     @Published public var selectedGroup: TopologyGroup? = nil
     @Published public var nowPlaying: NowPlayingResult? = nil
+    @Published public var upNextTrack: UpNextTrack? = nil
     @Published public var queueItems: [QueueItem] = []
     @Published public var queueTotalMatches: Int = 0
     @Published public var favorites: [SonosFavorite] = []
@@ -21,12 +22,20 @@ public final class SonosCoordinator: ObservableObject {
     @Published public var showingStreamPlayer: Bool = false
     @Published public var showingClearQueueConfirmation: Bool = false
     @Published public var errorMessage: String? = nil
+    @Published public var capabilities: ServerCapabilities = .localDefault
+    @Published public var backend: any SonosBackend
 
     public func toggleMiniPlayerMode() {
         isMiniPlayerMode.toggle()
     }
 
-    public let sonosService: SonosService
+    public var sonosService: SonosService {
+        if let local = backend as? LocalHomectlBackend {
+            return local.service
+        }
+        return SonosService()
+    }
+
     public let settings: AppSettings
 
     var pollTask: Task<Void, Never>?
@@ -36,12 +45,21 @@ public final class SonosCoordinator: ObservableObject {
     var previousVolume: Double = 20.0
 
     public init(
+        backend: any SonosBackend,
+        settings: AppSettings = .shared
+    ) {
+        self.backend = backend
+        self.settings = settings
+        self.capabilities = backend.capabilities
+        setupMediaManager()
+    }
+
+    public convenience init(
         sonosService: SonosService = SonosService(),
         settings: AppSettings = .shared
     ) {
-        self.sonosService = sonosService
-        self.settings = settings
-        setupMediaManager()
+        let backend = LocalHomectlBackend(service: sonosService, settings: settings)
+        self.init(backend: backend, settings: settings)
     }
 
     deinit {
@@ -65,17 +83,24 @@ public final class SonosCoordinator: ObservableObject {
     public func connectAndInitialize() async {
         serverStatus = .connecting
         errorMessage = nil
-        let binaryPath = settings.effectiveMcpBinaryPath
+
+        // Ensure backend matches user setting
+        if settings.controlEngine == .cloud && !(backend is SonosCloudBackend) {
+            self.backend = SonosCloudBackend()
+        } else if settings.controlEngine == .local && !(backend is LocalHomectlBackend) {
+            self.backend = LocalHomectlBackend(service: SonosService(), settings: settings)
+        }
 
         do {
-            let (serverInfo, tools) = try await sonosService.client.initializeAndVerify(binaryPath: binaryPath)
+            let (serverInfo, tools) = try await backend.connect()
+            self.capabilities = backend.capabilities
             serverStatus = .connected(serverInfo: serverInfo, tools: tools)
-            AppLogger.shared.log("Connected to \(serverInfo.name) with \(tools.count) tools", category: "COORDINATOR")
+            AppLogger.shared.log("Connected to \(serverInfo.name) (\(backend.engine.shortBadge)) with \(tools.count) tools", category: "COORDINATOR")
             await refreshAll()
             startPolling()
         } catch {
             serverStatus = .error(error.localizedDescription)
-            errorMessage = "Sonos MCP Server error: \(error.localizedDescription)"
+            errorMessage = "Connection error (\(settings.controlEngine.shortBadge)): \(error.localizedDescription)"
             AppLogger.shared.error("Connection failed: \(error)", category: "COORDINATOR")
         }
     }
@@ -83,29 +108,53 @@ public final class SonosCoordinator: ObservableObject {
     public func disconnect() async {
         pollTask?.cancel()
         pollTask = nil
-        await sonosService.client.stop()
+        await backend.disconnect()
         serverStatus = .disconnected
     }
 
-    /// Stops the existing MCP server process, spawns the binary anew, and refreshes all groups and playback state.
+    /// Switches the active control engine between Local and Cloud without auto-fallback
+    public func switchEngine(to newEngine: ControlEngine) async {
+        guard newEngine != settings.controlEngine else { return }
+        settings.controlEngine = newEngine
+        await disconnect()
+
+        if newEngine == .cloud {
+            self.backend = SonosCloudBackend()
+        } else {
+            self.backend = LocalHomectlBackend(service: SonosService(), settings: settings)
+        }
+        self.capabilities = backend.capabilities
+
+        // Reset system state
+        self.groups = []
+        self.selectedGroup = nil
+        self.nowPlaying = nil
+        self.upNextTrack = nil
+        self.queueItems = []
+        self.queueTotalMatches = 0
+
+        await connectAndInitialize()
+    }
+
+    /// Reloads the active backend connection and refreshes state
     public func reloadServer() async {
         isRefreshing = true
         serverStatus = .connecting
-        AppLogger.shared.log("Reloading Sonos MCP Server...", category: "COORDINATOR")
+        AppLogger.shared.log("Reloading Sonos \(settings.controlEngine.shortBadge) Backend...", category: "COORDINATOR")
 
-        await sonosService.client.stop()
+        await backend.disconnect()
         try? await Task.sleep(nanoseconds: 150_000_000)
 
-        let binaryPath = settings.effectiveMcpBinaryPath
         do {
-            let (serverInfo, tools) = try await sonosService.client.initializeAndVerify(binaryPath: binaryPath)
+            let (serverInfo, tools) = try await backend.connect()
+            self.capabilities = backend.capabilities
             serverStatus = .connected(serverInfo: serverInfo, tools: tools)
             AppLogger.shared.log("Reloaded \(serverInfo.name) with \(tools.count) tools", category: "COORDINATOR")
             await refreshAll(forceNetworkScan: false)
             errorMessage = nil
         } catch {
             serverStatus = .error(error.localizedDescription)
-            errorMessage = "Failed to reload MCP Server: \(error.localizedDescription)"
+            errorMessage = "Failed to reload: \(error.localizedDescription)"
             AppLogger.shared.error("reloadServer failed: \(error)", category: "COORDINATOR")
         }
         isRefreshing = false
@@ -117,15 +166,16 @@ public final class SonosCoordinator: ObservableObject {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                let interval = self?.settings.pollingInterval ?? 4.0
+                // In cloud mode, default to 6.0s polling to respect cloud rate limits & ~220ms latency
+                let defaultInterval = self?.settings.controlEngine == .cloud ? 6.0 : 4.0
+                let interval = max(2.0, self?.settings.pollingInterval ?? defaultInterval)
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 guard let self = self, !Task.isCancelled else { break }
 
                 if self.serverStatus.isConnected {
-                    if let ip = self.selectedGroup?.coordinatorIP {
-                        await self.refreshNowPlaying(ip: ip)
+                    if self.selectedGroup != nil {
+                        await self.refreshNowPlaying()
                     } else if self.groups.isEmpty {
-                        // Auto-recovery: if no groups were established (e.g. boot network hiccup), retry refreshAll
                         await self.refreshAll()
                     }
                 }

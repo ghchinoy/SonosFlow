@@ -88,8 +88,18 @@ public struct SpeakerSidebarView: View {
                 .frame(width: 9, height: 9)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(statusTitle)
-                    .font(.caption.weight(.semibold))
+                HStack(spacing: 6) {
+                    Text(statusTitle)
+                        .font(.caption.weight(.semibold))
+
+                    Text(coordinator.backend.engine.shortBadge)
+                        .font(.system(size: 8, weight: .bold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(coordinator.backend.engine == .cloud ? Color.blue.opacity(0.15) : Color.green.opacity(0.15))
+                        .foregroundColor(coordinator.backend.engine == .cloud ? .blue : .green)
+                        .clipShape(Capsule())
+                }
                 Text(statusSubtitle)
                     .font(.caption2)
                     .foregroundColor(.secondary)
@@ -150,12 +160,14 @@ public struct SpeakerSidebarView: View {
             .buttonStyle(.plain)
             .help("Browse Sonos Favorites (⌘F)")
 
-            Button(action: { showingStreamPlayer = true }) {
-                Label("Stream", systemImage: "dot.radiowaves.left.and.right")
-                    .font(.caption.weight(.medium))
+            if coordinator.capabilities.supportsAudioStreams {
+                Button(action: { showingStreamPlayer = true }) {
+                    Label("Stream", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.caption.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .help("Play Audio Stream URL (⌘U)")
             }
-            .buttonStyle(.plain)
-            .help("Play Audio Stream URL (⌘U)")
 
             Spacer()
 

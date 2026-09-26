@@ -14,16 +14,17 @@ extension SonosCoordinator {
             self.isMuted = true
         }
 
-        guard let ip = selectedGroup?.coordinatorIP else { return }
+        guard let target = selectedGroup?.target else { return }
 
         volumeDebounceTask?.cancel()
         volumeDebounceTask = Task {
             try? await Task.sleep(nanoseconds: 100_000_000) // 100ms debounce
             guard !Task.isCancelled else { return }
             do {
-                try await sonosService.setVolume(ip: ip, volume: Int(clamped))
+                try await backend.setVolume(target: target, volume: Int(clamped))
             } catch {
-                AppLogger.shared.warning("Failed to set volume on \(ip): \(error)", category: "COORDINATOR")
+                let desc = target.localIP ?? target.groupId ?? "target"
+                AppLogger.shared.warning("Failed to set volume on \(desc): \(error)", category: "COORDINATOR")
             }
         }
     }
@@ -46,7 +47,7 @@ extension SonosCoordinator {
     public func refreshMemberVolumes(for group: TopologyGroup) async {
         for member in group.members {
             guard let ip = member.ip, !ip.isEmpty else { continue }
-            if let np = try? await sonosService.getNowPlaying(ip: ip) {
+            if let np = try? await backend.getNowPlaying(target: .local(ip)) {
                 self.memberVolumes[ip] = Double(np.volume)
             }
         }
@@ -61,7 +62,7 @@ extension SonosCoordinator {
             try? await Task.sleep(nanoseconds: 100_000_000)
             guard !Task.isCancelled else { return }
             do {
-                try await sonosService.setVolume(ip: memberIP, volume: Int(clamped))
+                try await backend.setVolume(target: .local(memberIP), volume: Int(clamped))
             } catch {
                 AppLogger.shared.warning("Failed to set member volume on \(memberIP): \(error)", category: "COORDINATOR")
             }

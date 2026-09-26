@@ -6,6 +6,7 @@ public final class AppSettings: ObservableObject {
 
     private enum Keys {
         static let mcpBinaryPath = "sonosflow_mcp_binary_path"
+        static let controlEngine = "sonosflow_control_engine"
         static let selectedGroupId = "sonosflow_selected_group_id"
         static let pollingInterval = "sonosflow_polling_interval"
         static let volumeDelta = "sonosflow_volume_delta"
@@ -14,6 +15,10 @@ public final class AppSettings: ObservableObject {
     }
 
     private let defaults: UserDefaults
+
+    @Published public var controlEngine: ControlEngine {
+        didSet { defaults.set(controlEngine.rawValue, forKey: Keys.controlEngine) }
+    }
 
     @Published public var mcpBinaryPath: String {
         didSet { defaults.set(mcpBinaryPath, forKey: Keys.mcpBinaryPath) }
@@ -53,6 +58,11 @@ public final class AppSettings: ObservableObject {
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        if let raw = defaults.string(forKey: Keys.controlEngine), let engine = ControlEngine(rawValue: raw) {
+            self.controlEngine = engine
+        } else {
+            self.controlEngine = .local
+        }
         self.mcpBinaryPath = defaults.string(forKey: Keys.mcpBinaryPath) ?? ""
         self.selectedGroupId = defaults.string(forKey: Keys.selectedGroupId)
         let interval = defaults.double(forKey: Keys.pollingInterval)

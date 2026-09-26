@@ -92,6 +92,19 @@ public struct MainSplitView: View {
                             .foregroundColor(.primary)
                             .lineLimit(2)
                         Spacer()
+                        if coordinator.backend.engine == .cloud {
+                            Button("Sign In") {
+                                showingSettings = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+
+                            Button("Use Local") {
+                                Task { await coordinator.switchEngine(to: .local) }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
                         Button(action: { coordinator.errorMessage = nil }) {
                             Image(systemName: "xmark")
                                 .font(.caption2)
@@ -148,7 +161,8 @@ public struct MainSplitView: View {
                 }
 
                 if let group = coordinator.selectedGroup {
-                    Text("Coordinator: \(group.coordinatorIP ?? "Unknown IP") • \(group.members.count) speaker\(group.members.count == 1 ? "" : "s")")
+                    let coordDesc = group.coordinatorIP ?? (coordinator.backend.engine == .cloud ? "Sonos Cloud" : "Unknown IP")
+                    Text("Coordinator: \(coordDesc) • \(group.members.count) speaker\(group.members.count == 1 ? "" : "s")")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -295,7 +309,9 @@ public struct MainSplitView: View {
                     showingFavorites = true
                     return nil
                 case 32: // 'U' -> Audio Stream
-                    coordinator.showingStreamPlayer = true
+                    if coordinator.capabilities.supportsAudioStreams {
+                        coordinator.showingStreamPlayer = true
+                    }
                     return nil
                 case 43: // ',' -> Settings
                     showingSettings = true

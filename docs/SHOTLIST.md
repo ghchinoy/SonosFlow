@@ -22,6 +22,8 @@ This internal catalog tracks all visual screenshot assets for SonosFlow document
 | **12** | **App Menu Bar & Dock Menus** | `dock-menu.webp` | `[ ] To Take` | Keyboard Shortcuts, User Guide | Right-click contextual menu on macOS Dock icon showing transport controls and active rooms. |
 | **13** | **Main Window in Dark Mode** | `main-window-dark.webp` | `[ ] To Take` | Home (`index.mdx`) | Alternative dark mode rendering for dark appearance showcase. |
 | **14** | **MiniPlayer Morph Transition** | `miniplayer-morph.webp` | `[ ] Optional` | MiniPlayer Guide | Animated WebP or GIF recorded via Screen Recording showing `⌘M` window frame morphing. |
+| **15** | **Settings: Control Engine Switcher** | `settings-engine-switch.webp` | `[ ] To Take` | Comparison, User Guide | Preferences dialog showing Local vs. Sonos Cloud segmented picker, live capabilities list, and OAuth status. |
+| **16** | **Cloud Mode: Up Next Preview Card** | `cloud-up-next.webp` | `[ ] To Take` | Comparison, User Guide | Main window in Sonos Cloud mode showing single-track Up Next card, skip button, and Cloud pill badge. |
 
 ---
 
