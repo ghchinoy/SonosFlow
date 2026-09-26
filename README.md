@@ -125,29 +125,41 @@ sonos-swift-mcp/
 ├── Resources/
 │   ├── AppIcon.icns                  # macOS application icon bundle
 │   └── AppIcon.png
-├── docs/                             # Astro Starlight documentation site
+├── docs/                             # Astro Starlight documentation site & guides
 │   ├── astro.config.mjs
 │   ├── package.json
-│   └── src/content/docs/             # Guides, Architecture, and Reference
+│   ├── user-guide.md                 # Complete standalone user guide
+│   ├── official-mcp-comparison.md    # homectl vs official Sonos 27mcp analysis
+│   └── src/content/docs/             # Starlight collections (guides, architecture, reference)
 │
 ├── Sources/
 │   ├── SonosFlow/                    # App entry point & NSApplication delegate
-│   │   └── App/SonosFlowApp.swift    # WindowGroup, MenuBarExtra, Settings
+│   │   └── App/SonosFlowApp.swift    # WindowGroup, MenuBarExtra, DockMenu, CommandMenus
 │   │
 │   ├── SonosFlowKit/                 # Core framework library
 │   │   ├── Models/                   # SonosModels, MCPModels, AppSettings
-│   │   ├── Services/                 # MCPClient, SonosService, ArtworkCache, AppLogger
-│   │   ├── ViewModels/               # SonosCoordinator (@MainActor)
+│   │   ├── Services/                 # MCPClient (FIFO AsyncStream), SonosService,
+│   │   │                             # ArtworkCache (Two-Tier), NowPlayingMediaManager, AppLogger
+│   │   ├── ViewModels/               # Modularized SonosCoordinator (@MainActor):
+│   │   │                             #   • SonosCoordinator.swift (Core state & lifecycle)
+│   │   │                             #   • SonosCoordinator+Discovery.swift (Failover & seeds)
+│   │   │                             #   • SonosCoordinator+Queue.swift (Multi-page & mutations)
+│   │   │                             #   • SonosCoordinator+Volume.swift (Debounce & balancing)
+│   │   │                             #   • SonosCoordinator+Playback.swift (Transport & streams)
 │   │   └── Views/                    # MainSplitView, MiniPlayerView, MenuBarView,
 │   │                                 # SpeakerSidebarView, NowPlayingCardView,
-│   │                                 # QueueListView, FavoritesPopoverView,
+│   │                                 # QueueListView, StreamPlayerSheetView,
+│   │                                 # GroupVolumePopoverView, FavoritesPopoverView,
 │   │                                 # TransportBarView, SettingsView, WindowAccessor
 │   │
-│   └── SonosFlowSpike/               # Headless CLI verification spike
+│   ├── SonosFlowSpike/               # Headless CLI verification spike for local homectl-sonos
+│   │   └── main.swift
+│   │
+│   └── SonosOfficialMCPSpike/        # Headless CLI exploration spike for official hosted Sonos 27mcp
 │       └── main.swift
 │
 └── Tests/
-    └── SonosFlowTests/               # Unit test suite for models, URIs, and MCP framing
+    └── SonosFlowTests/               # Unit test suite (21 tests with MockSonosService)
         └── SonosFlowTests.swift
 ```
 
@@ -162,10 +174,12 @@ sonos-swift-mcp/
 | `⌘ ←` / `F7` | Previous Track | Return to previous track (supports Mac F7 hardware key) |
 | `⌘ ↑` | Volume Up | Increase master volume (+5%) |
 | `⌘ ↓` | Volume Down | Decrease master volume (-5%) |
-| `⌘ ⌥ ↓` | Mute / Unmute | Toggle volume mute on active room |
+| `⌘ ⌥ ↓` | Mute / Unmute | Toggle volume mute on active room (restores previous level on unmute) |
 | `⌘ U` | Audio Stream | Open Audio Stream Player dialog with presets & custom URLs |
 | `⌘ M` | Toggle MiniPlayer | Morph window between full split-view and floating miniplayer |
-| `Esc` | Exit MiniPlayer | Restore full window from miniplayer mode |
+| `Esc` | Clear Filter / Exit | Clear queue filter (when filtering) or exit MiniPlayer |
+| `Return` | Play Selected | Play highlighted song in playback queue |
+| `Delete` / `⌫` | Remove Selected | Remove highlighted song from playback queue |
 | `⌘ R` | Refresh | Refresh speaker groups & queue |
 | `⌘ ⇧ R` | Reload MCP Server | Restart `mcp-sonos` child process and reload registered tools |
 | `⌘ F` | Favorites | Open pinned Sonos favorites sheet |
@@ -181,13 +195,25 @@ sonos-swift-mcp/
 ```bash
 make test
 ```
-Executes the full unit test suite covering topology decoding, relative/absolute artwork URL resolution, time parsing, and MCP JSON-RPC decoding fallbacks.
+Executes the full unit test suite (21 tests) using `MockSonosService` covering topology candidate failover (Move 2 -> Play:1), multi-page queue pagination (188+ tracks), optimistic mutation rollbacks on server errors, volume jitter debouncing, mute state restoration, and preset persistence.
 
-### Running the Live CLI Spike
+### Running the Live Local Spike
 ```bash
 make spike
 ```
-Runs `SonosFlowSpike` in headless mode to verify process spawning, MCP handshake, speaker discovery, now-playing inspection, and queue retrieval against your physical Sonos network.
+Runs `SonosFlowSpike` in headless mode to verify local process spawning, MCP handshake, speaker discovery, now-playing inspection, and queue retrieval against your physical Sonos network.
+
+### Exploring the Official Hosted Sonos 27mcp Server
+```bash
+make official-spike
+```
+Runs `SonosOfficialMCPSpike` to authenticate with your Sonos account via OAuth 2.1 PKCE, connect to `https://mcp.ws.sonos.com/mcp`, benchmark cloud latency, and dump all 34 official cloud tools into `docs/official-mcp-tools.json`.
+
+---
+
+## Local homectl vs. Official Sonos 27mcp
+
+SonosFlow defaults to local **`homectl-sonos`** for ultra-low latency (<10ms), offline reliability, and deep physical queue manipulation (`Q:0`). For a side-by-side comparison with Sonos's newly released official cloud server, read **[Comparative Analysis: homectl-sonos vs. Official Sonos 27mcp](docs/official-mcp-comparison.md)** or view the live documentation.
 
 ---
 
@@ -207,6 +233,23 @@ make docs-dev
 # Build static production documentation site
 make docs-build
 ```
+
+---
+
+## Make Targets
+
+| Target | Description |
+|---|---|
+| `make run` | Builds debug binary and launches `SonosFlow.app`. |
+| `make run-cli` | Runs `SonosFlow` directly in the terminal via `swift run`. |
+| `make build` | Compiles debug binaries for all targets. |
+| `make spike` | Runs local `homectl-sonos` MCP verification spike. |
+| `make official-spike` | Runs official hosted `Sonos 27mcp` exploration spike. |
+| `make test` | Executes the 21-test automated unit test suite. |
+| `make app` | Builds an optimized release `.app` bundle. |
+| `make docs-dev` | Starts local Astro Starlight docs development server. |
+| `make docs-build` | Compiles the production Astro documentation site. |
+| `make clean` | Cleans build artifacts, `.app` bundles, and temporary caches. |
 
 ---
 

@@ -132,7 +132,10 @@ Sonos queues can hold hundreds of songs. SonosFlow automatically pages through t
 2. Click and drag the track to a new position.
 3. The list moves optimistically with zero latency while `sonos_queue_edit(action: 'reorder')` executes in the background.
 
-### Removing Tracks
+*Note: To prevent position misalignment, manual drag-and-drop reordering is disabled while an active search filter is applied. Press `Esc` to clear the filter and reorder.*
+
+### Removing Tracks & Keyboard Navigation
+- **Play Highlighted Track**: Select any row with arrow keys and press **`Return`** to start playback.
 - **Hover Trash Icon**: Move your mouse over any row to reveal the trash button on the right. Click it to remove that track.
 - **Trackpad Swipe**: Swipe left with two fingers on any row to delete.
 - **Context Menu**: Right-click any row and select **Remove from Queue**.
@@ -238,7 +241,8 @@ Click any curated station chip to start listening immediately:
 
 ### Master Room Volume
 - Use the transport slider or step buttons (`⌘↑` / `⌘↓`) to adjust master room volume in 5% increments.
-- Mute/unmute with **`⌘⌥↓`** or by clicking the speaker icon.
+- Mute/unmute with **`⌘⌥↓`** or by clicking the speaker icon. Unmuting cleanly restores your prior volume level, and dragging the slider above 0 automatically un-mutes.
+- Background polling incorporates a 1.2s guard window to eliminate slider jitter while actively dragging.
 
 ### Individual Speaker Volumes in Groups
 When listening on a stereo pair (e.g. paired Play:1s) or multi-room group:

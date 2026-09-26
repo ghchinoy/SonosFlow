@@ -33,7 +33,8 @@ When launched, SonosFlow scans your local Wi-Fi subnet and lists active speaker 
 SonosFlow provides complete control over the Sonos playback queue for any selected room:
 
 - **Automatic Multi-Page Loading**: Automatically pages through queues larger than 100 tracks in 100-item batches, loading full playlists (e.g. 188 tracks) in milliseconds.
-- **Drag-and-Drop Reordering**: Hover over any track to reveal the reorder grip (`⠿`), then drag it to a new position.
+- **Drag-and-Drop Reordering**: Hover over any track to reveal the reorder grip (`⠿`), then drag it to a new position. *(Disabled while searching to prevent index misalignment; clear filter with `Esc` to reorder).*
+- **Keyboard Navigation**: Use `↑` / `↓` arrow keys to highlight rows, press **`Return`** to play, and press **`Delete`** or **`Backspace`** to remove.
 - **Track Removal**: Hover over a track to reveal the trash icon (`trash`), swipe left with two fingers on a trackpad, or select a track and press `Delete`.
 - **"Play Next"**: Right-click any track in the queue and select **Play Next** to insert it directly after the currently playing song via `sonos_queue_edit(as_next: true)`.
 - **Clear Entire Queue**: Click **Clear** in the queue header and confirm the dialog to wipe the queue.
@@ -92,7 +93,7 @@ Press **`⌘U`** or click **Stream** in the sidebar:
 
 ## 9. Volume Balancing & Individual Speaker Sliders
 
-- **Master Volume**: Transport slider and step buttons (`⌘↑` / `⌘↓`) adjust room volume in 5% increments. Mute with `⌘⌥↓`.
+- **Master Volume**: Transport slider and step buttons (`⌘↑` / `⌘↓`) adjust room volume in 5% increments. Mute/unmute with `⌘⌥↓` or by clicking the speaker icon (unmuting cleanly restores previous volume; moving the slider above 0 automatically un-mutes). Jitter debouncing prevents background polling from overwriting active drags.
 - **Individual Speaker Balance**: For stereo pairs or multi-room groups, click the slider button (`slider.horizontal.2`) beside the volume percentage to open the **Speaker Volumes Popover** and balance individual physical speakers independently.
 
 ---
