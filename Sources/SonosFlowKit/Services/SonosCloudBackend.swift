@@ -160,6 +160,36 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
     public func reorderToPlayNext(target: SonosTarget, track: Int, count: Int) async throws {}
     public func clearQueue(target: SonosTarget) async throws {}
 
+    // MARK: - Playback Modes & Crossfade (Sonos 27mcp: set_shuffle_repeat_crossfade)
+
+    public func setShuffle(target: SonosTarget, enabled: Bool) async throws {
+        guard let gid = target.groupId else { return }
+        _ = try await client.callTool(name: "set_shuffle_repeat_crossfade", arguments: [
+            "group_id": gid,
+            "shuffle": enabled
+        ])
+    }
+
+    public func setRepeat(target: SonosTarget, mode: String) async throws {
+        guard let gid = target.groupId else { return }
+        let lower = mode.lowercased()
+        let repeatAll = (lower == "all")
+        let repeatOne = (lower == "one")
+        _ = try await client.callTool(name: "set_shuffle_repeat_crossfade", arguments: [
+            "group_id": gid,
+            "repeat": repeatAll,
+            "repeat_one": repeatOne
+        ])
+    }
+
+    public func setCrossfade(target: SonosTarget, enabled: Bool) async throws {
+        guard let gid = target.groupId else { return }
+        _ = try await client.callTool(name: "set_shuffle_repeat_crossfade", arguments: [
+            "group_id": gid,
+            "crossfade": enabled
+        ])
+    }
+
     // MARK: - Universal MCP Payload Unwrapping
 
     public static func unwrapMCPJSON(_ raw: Any) throws -> Any {

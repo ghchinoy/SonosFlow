@@ -106,6 +106,36 @@ public struct NowPlayingCardView: View {
                     .help("Next Track (⌘→)")
                     .accessibilityLabel("Next Track")
 
+                    if coordinator.capabilities.supportsShuffleRepeat {
+                        Divider()
+                            .frame(height: 16)
+                            .padding(.horizontal, 4)
+
+                        // Shuffle Button
+                        Button(action: {
+                            Task { await coordinator.toggleShuffle() }
+                        }) {
+                            Image(systemName: "shuffle")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(coordinator.shuffleEnabled ? .accentColor : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(coordinator.shuffleEnabled ? "Shuffle: On" : "Shuffle: Off")
+                        .accessibilityLabel("Toggle shuffle")
+
+                        // Repeat Button
+                        Button(action: {
+                            Task { await coordinator.cycleRepeatMode() }
+                        }) {
+                            Image(systemName: repeatIconName)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(coordinator.repeatMode != "off" ? .accentColor : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Repeat: \(coordinator.repeatMode.capitalized)")
+                        .accessibilityLabel("Cycle repeat mode")
+                    }
+
                     Spacer()
                 }
                 .padding(.top, 2)
@@ -120,6 +150,13 @@ public struct NowPlayingCardView: View {
                         .stroke(Color.primary.opacity(0.06), lineWidth: 1)
                 )
         )
+    }
+
+    private var repeatIconName: String {
+        if coordinator.repeatMode.lowercased() == "one" {
+            return "repeat.1"
+        }
+        return "repeat"
     }
 
     private var isPlaying: Bool {

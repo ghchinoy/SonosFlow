@@ -39,4 +39,9 @@ public protocol SonosBackend: AnyObject, Sendable {
     func reorderQueue(target: SonosTarget, startingIndex: Int, numberOfTracks: Int, insertBefore: Int) async throws
     func reorderToPlayNext(target: SonosTarget, track: Int, count: Int) async throws
     func clearQueue(target: SonosTarget) async throws
+
+    // MARK: - Playback Modes & Crossfade (control-bjv)
+    func setShuffle(target: SonosTarget, enabled: Bool) async throws
+    func setRepeat(target: SonosTarget, mode: String) async throws
+    func setCrossfade(target: SonosTarget, enabled: Bool) async throws
 }

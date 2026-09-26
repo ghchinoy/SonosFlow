@@ -43,6 +43,16 @@ extension SonosCoordinator {
             self.nowPlaying = np
             self.upNextTrack = np.upNext
 
+            if let shuf = np.shuffle {
+                self.shuffleEnabled = shuf
+            }
+            if let rep = np.repeatMode, !rep.isEmpty {
+                self.repeatMode = rep
+            }
+            if let cf = np.crossfade {
+                self.crossfadeEnabled = cf
+            }
+
             // Only update master volume from speaker if user is not actively adjusting the slider
             if Date().timeIntervalSince(lastUserVolumeChangeTime) > 1.2 {
                 self.volume = Double(np.volume)
@@ -209,6 +219,52 @@ extension SonosCoordinator {
         } catch {
             errorMessage = "Failed to play stream: \(error.localizedDescription)"
             AppLogger.shared.error("playStream failed: \(error)", category: "COORDINATOR")
+        }
+    }
+
+    // MARK: - Playback Settings (control-bjv)
+
+    public func toggleShuffle() async {
+        guard let target = selectedGroup?.target else { return }
+        let nextState = !shuffleEnabled
+        do {
+            try await backend.setShuffle(target: target, enabled: nextState)
+            self.shuffleEnabled = nextState
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            await refreshNowPlaying()
+        } catch {
+            errorMessage = "Failed to toggle shuffle: \(error.localizedDescription)"
+        }
+    }
+
+    public func cycleRepeatMode() async {
+        guard let target = selectedGroup?.target else { return }
+        let nextMode: String
+        switch repeatMode.lowercased() {
+        case "off": nextMode = "all"
+        case "all": nextMode = "one"
+        default: nextMode = "off"
+        }
+        do {
+            try await backend.setRepeat(target: target, mode: nextMode)
+            self.repeatMode = nextMode
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            await refreshNowPlaying()
+        } catch {
+            errorMessage = "Failed to set repeat mode: \(error.localizedDescription)"
+        }
+    }
+
+    public func toggleCrossfade() async {
+        guard let target = selectedGroup?.target else { return }
+        let nextState = !crossfadeEnabled
+        do {
+            try await backend.setCrossfade(target: target, enabled: nextState)
+            self.crossfadeEnabled = nextState
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            await refreshNowPlaying()
+        } catch {
+            errorMessage = "Failed to toggle crossfade: \(error.localizedDescription)"
         }
     }
 }

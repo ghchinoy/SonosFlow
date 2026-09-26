@@ -710,6 +710,43 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertTrue(coordinator.capabilities.supportsQueue)
     }
 
+    @MainActor
+    func testCoordinatorShuffleAndRepeatToggles() async {
+        let mock = MockSonosBackend(engine: .local)
+        let coordinator = SonosCoordinator(backend: mock)
+        let group = TopologyGroup(
+            id: "G1",
+            coordinatorUUID: "C1",
+            isPair: false,
+            members: [TopologyMember(uuid: "C1", roomName: "Office", ip: "192.168.4.99", isCoordinator: true)]
+        )
+        coordinator.selectedGroup = group
+
+        // Test toggle shuffle
+        XCTAssertFalse(coordinator.shuffleEnabled)
+        await coordinator.toggleShuffle()
+        XCTAssertTrue(coordinator.shuffleEnabled)
+        XCTAssertEqual(mock.lastShuffle, true)
+
+        await coordinator.toggleShuffle()
+        XCTAssertFalse(coordinator.shuffleEnabled)
+        XCTAssertEqual(mock.lastShuffle, false)
+
+        // Test cycle repeat
+        XCTAssertEqual(coordinator.repeatMode, "off")
+        await coordinator.cycleRepeatMode()
+        XCTAssertEqual(coordinator.repeatMode, "all")
+        XCTAssertEqual(mock.lastRepeat, "all")
+
+        await coordinator.cycleRepeatMode()
+        XCTAssertEqual(coordinator.repeatMode, "one")
+        XCTAssertEqual(mock.lastRepeat, "one")
+
+        await coordinator.cycleRepeatMode()
+        XCTAssertEqual(coordinator.repeatMode, "off")
+        XCTAssertEqual(mock.lastRepeat, "off")
+    }
+
     // MARK: - Official Sonos 27mcp Server Fixture Parsing Tests
 
     func testSonosCloudBackendTopologyParsing() throws {
@@ -895,6 +932,14 @@ class MockSonosBackend: SonosBackend, @unchecked Sendable {
     func reorderQueue(target: SonosTarget, startingIndex: Int, numberOfTracks: Int, insertBefore: Int) async throws {}
     func reorderToPlayNext(target: SonosTarget, track: Int, count: Int) async throws {}
     func clearQueue(target: SonosTarget) async throws {}
+
+    var lastShuffle: Bool?
+    var lastRepeat: String?
+    var lastCrossfade: Bool?
+
+    func setShuffle(target: SonosTarget, enabled: Bool) async throws { lastShuffle = enabled }
+    func setRepeat(target: SonosTarget, mode: String) async throws { lastRepeat = mode }
+    func setCrossfade(target: SonosTarget, enabled: Bool) async throws { lastCrossfade = enabled }
 }
 
 // MARK: - Mock Service Definition

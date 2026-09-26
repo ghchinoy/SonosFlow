@@ -164,4 +164,33 @@ public class SonosService: @unchecked Sendable {
         ]
         _ = try await client.callTool(name: "sonos_queue_edit", arguments: args)
     }
+
+    // MARK: - Queue Playback Modes (control-bjv via sonos_queue_edit)
+
+    public func setShuffle(ip: String, enabled: Bool) async throws {
+        let args: [String: Any] = [
+            "ip": ip,
+            "action": "shuffle",
+            "enabled": enabled
+        ]
+        _ = try await client.callTool(name: "sonos_queue_edit", arguments: args)
+    }
+
+    public func setRepeat(ip: String, mode: String) async throws {
+        let args: [String: Any] = [
+            "ip": ip,
+            "action": "repeat",
+            "repeat_mode": mode
+        ]
+        _ = try await client.callTool(name: "sonos_queue_edit", arguments: args)
+    }
+
+    public func setCrossfade(ip: String, enabled: Bool) async throws {
+        let args: [String: Any] = [
+            "ip": ip,
+            "action": "crossfade",
+            "enabled": enabled
+        ]
+        _ = try await client.callTool(name: "sonos_queue_edit", arguments: args)
+    }
 }

@@ -211,7 +211,7 @@ sonos-swift-mcp/
 │       └── main.swift
 │
 └── Tests/
-    └── SonosFlowTests/               # Unit test suite (31 tests with MockSonosService & MockSonosBackend)
+    └── SonosFlowTests/               # Unit test suite (32 tests with MockSonosService & MockSonosBackend)
         └── SonosFlowTests.swift
 ```
 
@@ -247,7 +247,7 @@ sonos-swift-mcp/
 ```bash
 make test
 ```
-Executes the full unit test suite (31 tests) using `MockSonosService` and `MockSonosBackend` covering topology candidate failover (Move 2 -> Play:1), multi-page queue pagination (188+ tracks), optimistic mutation rollbacks on server errors, volume jitter debouncing, mute state restoration, preset persistence, engine switching, dynamic schema inspection (control-bjv), and live cloud JSON fixture parsing.
+Executes the full unit test suite (32 tests) using `MockSonosService` and `MockSonosBackend` covering topology candidate failover (Move 2 -> Play:1), multi-page queue pagination (188+ tracks), optimistic mutation rollbacks on server errors, volume jitter debouncing, mute state restoration, preset persistence, engine switching, dynamic schema inspection (control-bjv), shuffle/repeat toggling, and live cloud JSON fixture parsing.
 
 ### Running the Live Local Spike
 ```bash
@@ -301,7 +301,7 @@ make docs-preview
 | `make install` | Installs release bundle to `~/Applications/SonosFlow.app` (or `INSTALL_DIR=...`). |
 | `make uninstall` | Removes bundle from `~/Applications/SonosFlow.app`. |
 | `make app` | Builds an optimized release `.app` bundle. |
-| `make test` | Executes the 31-test automated unit test suite. |
+| `make test` | Executes the 32-test automated unit test suite. |
 | `make spike` | Runs local `homectl-sonos` MCP verification spike. |
 | `make official-spike` | Runs official hosted `Sonos 27mcp` exploration spike. |
 | `make docs-install` | Installs Astro Starlight documentation dependencies. |

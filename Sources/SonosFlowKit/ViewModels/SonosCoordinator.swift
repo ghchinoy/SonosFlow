@@ -14,6 +14,9 @@ public final class SonosCoordinator: ObservableObject {
     @Published public var favorites: [SonosFavorite] = []
     @Published public var volume: Double = 0.0
     @Published public var isMuted: Bool = false
+    @Published public var shuffleEnabled: Bool = false
+    @Published public var repeatMode: String = "off"
+    @Published public var crossfadeEnabled: Bool = false
     @Published public var memberVolumes: [String: Double] = [:]
     @Published public var groupPlaybackStates: [String: String] = [:]
     @Published public var isLoadingQueue: Bool = false

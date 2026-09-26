@@ -154,4 +154,21 @@ public final class LocalHomectlBackend: SonosBackend, @unchecked Sendable {
         guard let ip = target.localIP else { return }
         try await service.clearQueue(ip: ip)
     }
+
+    // MARK: - Playback Modes & Crossfade (control-bjv)
+
+    public func setShuffle(target: SonosTarget, enabled: Bool) async throws {
+        guard let ip = target.localIP else { return }
+        try await service.setShuffle(ip: ip, enabled: enabled)
+    }
+
+    public func setRepeat(target: SonosTarget, mode: String) async throws {
+        guard let ip = target.localIP else { return }
+        try await service.setRepeat(ip: ip, mode: mode)
+    }
+
+    public func setCrossfade(target: SonosTarget, enabled: Bool) async throws {
+        guard let ip = target.localIP else { return }
+        try await service.setCrossfade(ip: ip, enabled: enabled)
+    }
 }

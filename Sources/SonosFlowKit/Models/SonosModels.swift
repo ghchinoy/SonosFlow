@@ -202,6 +202,10 @@ public struct NowPlayingResult: Codable, Equatable {
     public let isFollower: Bool?
     public let coordinatorIP: String?
     public let upNext: UpNextTrack?
+    public let playMode: String?
+    public let shuffle: Bool?
+    public let repeatMode: String?
+    public let crossfade: Bool?
 
     public init(
         ip: String,
@@ -218,7 +222,11 @@ public struct NowPlayingResult: Codable, Equatable {
         mediaURI: String? = nil,
         isFollower: Bool? = nil,
         coordinatorIP: String? = nil,
-        upNext: UpNextTrack? = nil
+        upNext: UpNextTrack? = nil,
+        playMode: String? = nil,
+        shuffle: Bool? = nil,
+        repeatMode: String? = nil,
+        crossfade: Bool? = nil
     ) {
         self.ip = ip
         self.state = state
@@ -235,6 +243,10 @@ public struct NowPlayingResult: Codable, Equatable {
         self.isFollower = isFollower
         self.coordinatorIP = coordinatorIP
         self.upNext = upNext
+        self.playMode = playMode
+        self.shuffle = shuffle
+        self.repeatMode = repeatMode
+        self.crossfade = crossfade
     }
 
     enum CodingKeys: String, CodingKey {
@@ -253,6 +265,10 @@ public struct NowPlayingResult: Codable, Equatable {
         case isFollower = "is_follower"
         case coordinatorIP = "coordinator_ip"
         case upNext = "up_next"
+        case playMode = "play_mode"
+        case shuffle
+        case repeatMode = "repeat"
+        case crossfade
     }
 
     public var isPlaying: Bool {
