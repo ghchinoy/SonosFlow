@@ -58,7 +58,35 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
             }
         }
 
-        return try parseNowPlayingResponse(raw, groupId: gid, volume: volume, isMuted: isMuted)
+        // 3. Query shuffle/repeat/crossfade state
+        var shuffle: Bool? = nil
+        var repeatMode: String? = nil
+        var crossfade: Bool? = nil
+        if capabilities.supportsShuffleRepeat,
+           let rawMode = try? await client.callTool(name: "get_shuffle_repeat_crossfade", arguments: ["group_id": gid]),
+           let modeDict = try? unwrapMCPJSON(rawMode) as? [String: Any] {
+            shuffle = modeDict["shuffle"] as? Bool
+            let repAll = modeDict["repeat"] as? Bool ?? false
+            let repOne = modeDict["repeatOne"] as? Bool ?? false
+            if repOne {
+                repeatMode = "one"
+            } else if repAll {
+                repeatMode = "all"
+            } else {
+                repeatMode = "off"
+            }
+            crossfade = modeDict["crossfade"] as? Bool
+        }
+
+        return try parseNowPlayingResponse(
+            raw,
+            groupId: gid,
+            volume: volume,
+            isMuted: isMuted,
+            shuffle: shuffle,
+            repeatMode: repeatMode,
+            crossfade: crossfade
+        )
     }
 
     public func play(target: SonosTarget) async throws {
@@ -289,7 +317,10 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
         _ raw: Any,
         groupId: String,
         volume: Int = 20,
-        isMuted: Bool = false
+        isMuted: Bool = false,
+        shuffle: Bool? = nil,
+        repeatMode: String? = nil,
+        crossfade: Bool? = nil
     ) throws -> NowPlayingResult {
         let unwrapped = try unwrapMCPJSON(raw)
         let payload = unwrapped as? [String: Any] ?? [:]
@@ -347,7 +378,11 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
             mediaURI: artURI,
             isFollower: false,
             coordinatorIP: nil,
-            upNext: upNext
+            upNext: upNext,
+            playMode: nil,
+            shuffle: shuffle,
+            repeatMode: repeatMode,
+            crossfade: crossfade
         )
     }
 

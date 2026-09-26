@@ -1,0 +1,290 @@
+digraph SonosFlowArchitecture {
+    rankdir=TB;
+    bgcolor="transparent";
+    compound=true;
+    newrank=true;
+    nodesep=0.4;
+    ranksep=0.45;
+
+    node [
+        fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif",
+        fontsize=11,
+        shape=box,
+        style="filled,rounded",
+        penwidth=1.5,
+        margin="0.18,0.12"
+    ];
+
+    edge [
+        fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif",
+        fontsize=9,
+        color="#708294",
+        fontcolor="#8a99a8",
+        penwidth=1.2,
+        arrowsize=0.75
+    ];
+
+    // MARK: - App Shell Layer
+    subgraph cluster_app {
+        label="macOS App Shell (SonosFlow)";
+        fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif";
+        fontsize=12;
+        fontcolor="#6b8ca8";
+        style="rounded,dashed";
+        color="#3d5870";
+        penwidth=1.2;
+        margin=14;
+
+        app_entry [
+            label="SonosFlowApp\nWindowGroup • MenuBarExtra • DockMenu • CommandMenus",
+            fillcolor="#23425f",
+            fontcolor="#ffffff",
+            color="#3d6f9e"
+        ];
+    }
+
+    // MARK: - UI Views Layer
+    subgraph cluster_views {
+        label="SwiftUI View Hierarchy";
+        fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif";
+        fontsize=12;
+        fontcolor="#789bb8";
+        style="rounded,dashed";
+        color="#3d5870";
+        penwidth=1.2;
+        margin=14;
+
+        views [
+            label="MainSplitView • SpeakerSidebarView • NowPlayingCardView\nQueueListView (188-Track Queue / Up Next Card) • MiniPlayerView (⌘M)\nMenuBarView • StreamPlayerSheet (⌘U) • SettingsView (⌘,)",
+            fillcolor="#243b52",
+            fontcolor="#ffffff",
+            color="#41658a"
+        ];
+    }
+
+    // MARK: - Coordinator & Domain Layer
+    subgraph cluster_coordinator {
+        label="State Coordination & Capabilities";
+        fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif";
+        fontsize=12;
+        fontcolor="#6fa394";
+        style="rounded,dashed";
+        color="#2c5e52";
+        penwidth=1.2;
+        margin=14;
+
+        coordinator [
+            label="SonosCoordinator (@MainActor)\nTopology • NowPlaying • Queue • Volumes • Playback Settings\nPartitioned into 5 Domain Extensions",
+            fillcolor="#1d4d42",
+            fontcolor="#ffffff",
+            color="#32806e"
+        ];
+
+        capabilities [
+            label="ServerCapabilities\nDynamic Feature Gating via tools/list Introspection\n(Queue • Streams • Favorites • Volumes • Shuffle/Repeat • EQ)",
+            fillcolor="#19453b",
+            fontcolor="#ffffff",
+            color="#2c7363"
+        ];
+    }
+
+    // MARK: - Backend Abstraction
+    subgraph cluster_backend {
+        label="Unified Backend Abstraction";
+        fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif";
+        fontsize=12;
+        fontcolor="#9d86ba";
+        style="rounded,dashed";
+        color="#4e3d63";
+        penwidth=1.2;
+        margin=14;
+
+        backend_protocol [
+            label="SonosBackend (Protocol)\nUnified Target Dispatch: .local(ip) | .cloud(householdId, groupId)",
+            fillcolor="#3e2d54",
+            fontcolor="#ffffff",
+            color="#684b8c"
+        ];
+    }
+
+    // MARK: - Side Services
+    subgraph cluster_services {
+        label="Platform Services";
+        fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif";
+        fontsize=11;
+        fontcolor="#8ba192";
+        style="rounded,dashed";
+        color="#3c5243";
+        penwidth=1.2;
+        margin=12;
+
+        artwork_cache [
+            label="ArtworkCache (actor)\nIn-Memory NSCache +\nSHA-256 Disk Store",
+            fillcolor="#233d2d",
+            fontcolor="#ffffff",
+            color="#3d694d"
+        ];
+
+        media_manager [
+            label="NowPlayingMediaManager\nMPRemoteCommandCenter (F7/F8/F9)\nMPNowPlayingInfoCenter",
+            fillcolor="#233d2d",
+            fontcolor="#ffffff",
+            color="#3d694d"
+        ];
+    }
+
+    // MARK: - Dual Engine Columns
+    subgraph cluster_engines {
+        label="Dual Control Engines (Switchable in Settings ⌘,)";
+        fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif";
+        fontsize=12;
+        fontcolor="#a89a7a";
+        style="rounded,dashed";
+        color="#595038";
+        penwidth=1.2;
+        margin=16;
+
+        // Column 1: Local
+        subgraph cluster_local {
+            label="Local Network Engine (Recommended Default)";
+            fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif";
+            fontsize=11;
+            fontcolor="#6ea887";
+            style="rounded,filled";
+            fillcolor="#122419";
+            color="#28593c";
+            penwidth=1.2;
+            margin=12;
+
+            local_backend [
+                label="LocalHomectlBackend\nZero Login • <10ms Latency • 100% Offline",
+                fillcolor="#1c472f",
+                fontcolor="#ffffff",
+                color="#317850"
+            ];
+
+            sonos_service [
+                label="SonosService\nTyped MCP Domain Wrapper",
+                fillcolor="#183d29",
+                fontcolor="#ffffff",
+                color="#2a6644"
+            ];
+
+            local_mcp_client [
+                label="MCPClient (actor)\nstdio Pipe Process Manager\nFIFO AsyncStream Chunking",
+                fillcolor="#143322",
+                fontcolor="#ffffff",
+                color="#235438"
+            ];
+
+            mcp_sonos_binary [
+                label="mcp-sonos (homectl binary)\nLocal stdio JSON-RPC 2.0 • 12 Tools",
+                fillcolor="#294235",
+                fontcolor="#ffffff",
+                color="#436b56"
+            ];
+
+            local_network [
+                label="Local LAN\nUPnP SOAP (Port 1400)",
+                shape=ellipse,
+                fillcolor="#213329",
+                fontcolor="#c5e0d0",
+                color="#3b5c49"
+            ];
+        }
+
+        // Column 2: Cloud
+        subgraph cluster_cloud {
+            label="Sonos Cloud Engine (The Sonos 27mcp Server)";
+            fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif";
+            fontsize=11;
+            fontcolor="#6fa3bf";
+            style="rounded,filled";
+            fillcolor="#102029";
+            color="#234c61";
+            penwidth=1.2;
+            margin=12;
+
+            cloud_backend [
+                label="SonosCloudBackend\nRemote & VPN Access • Single-Track Up Next",
+                fillcolor="#173f52",
+                fontcolor="#ffffff",
+                color="#286987"
+            ];
+
+            keychain [
+                label="CloudTokenStorage\nmacOS Keychain (RFC 7591 / PKCE)",
+                fillcolor="#133342",
+                fontcolor="#ffffff",
+                color="#1f546e"
+            ];
+
+            cloud_mcp_client [
+                label="CloudMCPClient (actor)\nOAuth 2.1 PKCE + HTTPS / SSE\nDynamic Client Registration",
+                fillcolor="#102a38",
+                fontcolor="#ffffff",
+                color="#1a475c"
+            ];
+
+            official_server [
+                label="Sonos 27mcp Server\nmcp.ws.sonos.com/mcp • 34 Tools",
+                fillcolor="#1e3a47",
+                fontcolor="#ffffff",
+                color="#345e73"
+            ];
+
+            cloud_broker [
+                label="Sonos Cloud Broker\nRemote Relay to Household",
+                shape=ellipse,
+                fillcolor="#182b36",
+                fontcolor="#c2dde8",
+                color="#2b4e61"
+            ];
+        }
+    }
+
+    // MARK: - Physical Target Hardware
+    subgraph cluster_hardware {
+        label="Sonos Hardware Ecosystem";
+        fontname="-apple-system,BlinkMacSystemFont,'SF Pro Text',Helvetica,Arial,sans-serif";
+        fontsize=12;
+        fontcolor="#a8a8a8";
+        style="rounded,dashed";
+        color="#474747";
+        penwidth=1.2;
+        margin=14;
+
+        speakers [
+            label="Physical Sonos Speakers\nStandalone (Move, Roam) • Stereo Pairs (Play:1, Five, Era) • Home Theater (Arc, Beam, Sub)",
+            fillcolor="#2e2e2e",
+            fontcolor="#ffffff",
+            color="#525252"
+        ];
+    }
+
+    // Wiring
+    app_entry -> views [label="Hosts"];
+    views -> coordinator [label="Observes & Commands"];
+    coordinator -> capabilities [label="Discovers & Gates", dir=both];
+    coordinator -> backend_protocol [label="Routes Commands via Target"];
+
+    views -> artwork_cache [label="Image Binding"];
+    coordinator -> media_manager [label="Syncs Now Playing"];
+
+    backend_protocol -> local_backend [label="Active = Local"];
+    backend_protocol -> cloud_backend [label="Active = Cloud"];
+
+    // Local Pipeline
+    local_backend -> sonos_service;
+    sonos_service -> local_mcp_client;
+    local_mcp_client -> mcp_sonos_binary [label="stdio pipes"];
+    mcp_sonos_binary -> local_network [label="UPnP"];
+    local_network -> speakers [label="Wi-Fi / Ethernet"];
+
+    // Cloud Pipeline
+    cloud_backend -> keychain [label="Loads Token"];
+    cloud_backend -> cloud_mcp_client;
+    cloud_mcp_client -> official_server [label="HTTPS / TLS"];
+    official_server -> cloud_broker;
+    cloud_broker -> speakers [label="Sonos Cloud WebSocket"];
+}

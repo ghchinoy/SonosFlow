@@ -7,3 +7,4 @@ DerivedData/
 .serena/
 .official-token.json
 *.token.json
+docs/diagrams/*.png

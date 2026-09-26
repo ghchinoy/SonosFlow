@@ -98,10 +98,15 @@ public struct ServerCapabilities: Equatable, Sendable {
             self.supportsDynamicGrouping = toolNames.contains("sonos_group")
             self.supportsHomeTheaterEQ = toolNames.contains("sonos_set_eq")
 
-            // Introspect sonos_queue_edit inputSchema actions for control-bjv
-            let queueEditActions = toolsByName["sonos_queue_edit"]?.enumValues(forProperty: "action") ?? []
-            self.supportsShuffleRepeat = queueEditActions.contains("shuffle") || queueEditActions.contains("repeat") || toolNames.contains("sonos_set_playmode")
-            self.supportsCrossfade = queueEditActions.contains("crossfade")
+            // Introspect sonos_queue_edit schema for control-bjv (property presence or action description/enum)
+            let queueEditTool = toolsByName["sonos_queue_edit"]
+            let hasRepeatMode = queueEditTool?.hasProperty("repeat_mode") == true
+            let actionMentionsShuffle = queueEditTool?.propertyMentions("action", keyword: "shuffle") == true
+            let actionMentionsCrossfade = queueEditTool?.propertyMentions("action", keyword: "crossfade") == true
+            let hasEnabled = queueEditTool?.hasProperty("enabled") == true
+
+            self.supportsShuffleRepeat = hasRepeatMode || actionMentionsShuffle || toolNames.contains("sonos_set_playmode")
+            self.supportsCrossfade = actionMentionsCrossfade || (hasEnabled && hasRepeatMode)
             self.supportsMusicSearch = false
 
         case .cloud:

@@ -54,3 +54,36 @@ Whenever updating this application, changing backends, or doing maintenance:
 2. **Review Schema Differences**: Check `git diff docs/official-mcp-tools.json` to see if Sonos added, renamed, or deprecated any tools at `https://mcp.ws.sonos.com/mcp`.
 3. **Verify Feature Gating**: Never hardcode assumptions that a specific cloud tool exists. Always route feature availability through `ServerCapabilities` and `tools/list` negotiation so missing or renamed tools gracefully degrade rather than crash.
 
+---
+
+## 🛠️ Operational Rules & Core Mandates
+
+1. **Protocol & Parser Verification**:
+   - Never write or rewrite MCP client parsers against assumed response structures.
+   - Run a read-only live probe against the real target server (`mcp-sonos` or `https://mcp.ws.sonos.com/mcp`) first.
+   - Derive test fixtures directly from captured, redacted live payloads.
+   - For an archive of specific protocol debugging insights, read **`docs/LESSONS.md`**.
+
+2. **Strict Unit Test Isolation**:
+   - Unit tests (`SonosFlowTests.swift`) must **NEVER** initiate outbound network connections or access developer Keychain credentials.
+   - Always inject `MockSonosBackend` or `MockSonosService` for test isolation. All tests must execute offline in under 1 second.
+
+3. **Dynamic Capability Introspection**:
+   - Do not rely solely on `enum` arrays in `inputSchema` for capability discovery. Servers may express choices in property descriptions or through dedicated property presence (e.g. `repeat_mode` in `sonos_queue_edit`).
+   - Use `MCPTool.hasProperty` and `MCPTool.propertyMentions` alongside `enumValues`.
+
+4. **Homectl Collaboration Protocol**:
+   - **Never edit files in `~/projects/homectl` directly.**
+   - Request backend enhancements exclusively via `bd create` tasks in the homectl repository.
+   - Respect homectl's **strict 12-tool limit**: always propose new action verbs inside existing tools (like `sonos_queue_edit` or `sonos_control`) rather than proposing new top-level tools.
+   - Sound settings (Home Theater EQ) belong to **individual physical speakers**, whereas playback and transport commands belong to **Group Coordinators**. Never route speaker EQ commands through coordinators.
+
+5. **Release Verification Checklist**:
+   - Before completing tasks, always execute:
+     ```bash
+     make test && make docs-build && make install
+     ```
+   - Synchronize test count citations across `README.md`, `docs/user-guide.md`, and `docs/src/content/docs/guides/getting-started.md`.
+   - After pushing to `origin main`, watch GitHub Actions deploy using `gh run watch`.
+
+

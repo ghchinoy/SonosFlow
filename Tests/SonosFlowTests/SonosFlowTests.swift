@@ -564,16 +564,28 @@ final class SonosFlowTests: XCTestCase {
     }
 
     func testServerCapabilitiesLocalWithControlBJV() {
-        // Schema inspection for control-bjv: shuffle, repeat, crossfade inside sonos_queue_edit
+        // Real schema captured from homectl commit a064cd9 (control-bjv):
+        // Note: action is type: string with description, and repeat_mode/enabled properties exist
         let queueEditSchema = """
         {
             "type": "object",
             "properties": {
+                "ip": { "type": "string" },
                 "action": {
                     "type": "string",
-                    "enum": ["remove", "clear", "reorder", "shuffle", "repeat", "crossfade"]
+                    "description": "Queue edit action: 'remove', 'clear', 'reorder', 'shuffle', 'repeat', 'crossfade' (required)"
+                },
+                "track": { "type": "integer" },
+                "count": { "type": "integer" },
+                "insert_before": { "type": "integer" },
+                "as_next": { "type": "boolean" },
+                "enabled": { "type": ["null", "boolean"] },
+                "repeat_mode": {
+                    "type": "string",
+                    "description": "Repeat mode for 'repeat' action: 'off', 'all', or 'one'"
                 }
-            }
+            },
+            "required": ["ip", "action"]
         }
         """
         let tools: [MCPTool] = [
@@ -593,8 +605,48 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertEqual(caps.engine, .local)
         XCTAssertTrue(caps.supportsQueue)
         XCTAssertTrue(caps.supportsQueueEdit)
-        XCTAssertTrue(caps.supportsShuffleRepeat, "Should dynamically discover shuffle/repeat from sonos_queue_edit action enum")
-        XCTAssertTrue(caps.supportsCrossfade, "Should dynamically discover crossfade from sonos_queue_edit action enum")
+        XCTAssertTrue(caps.supportsShuffleRepeat, "Should dynamically discover shuffle/repeat from homectl sonos_queue_edit schema")
+        XCTAssertTrue(caps.supportsCrossfade, "Should dynamically discover crossfade from homectl sonos_queue_edit schema")
+    }
+
+    func testServerCapabilitiesLocalWithoutControlBJV() {
+        // Legacy homectl schema without control-bjv
+        let legacyQueueEditSchema = """
+        {
+            "type": "object",
+            "properties": {
+                "ip": { "type": "string" },
+                "action": {
+                    "type": "string",
+                    "description": "Queue edit action: 'remove', 'clear', 'reorder' (required)"
+                },
+                "track": { "type": "integer" },
+                "count": { "type": "integer" },
+                "insert_before": { "type": "integer" },
+                "as_next": { "type": "boolean" }
+            },
+            "required": ["ip", "action"]
+        }
+        """
+        let tools: [MCPTool] = [
+            MCPTool(name: "sonos_list_speakers"),
+            MCPTool(name: "sonos_get_topology"),
+            MCPTool(name: "sonos_get_now_playing"),
+            MCPTool(name: "sonos_get_queue"),
+            MCPTool(name: "sonos_control"),
+            MCPTool(name: "sonos_set_volume"),
+            MCPTool(name: "sonos_list_favorites"),
+            MCPTool(name: "sonos_play_favorite"),
+            MCPTool(name: "sonos_play_stream"),
+            MCPTool(name: "sonos_queue_edit", inputSchemaJSON: legacyQueueEditSchema)
+        ]
+
+        let caps = ServerCapabilities(engine: .local, tools: tools)
+        XCTAssertEqual(caps.engine, .local)
+        XCTAssertTrue(caps.supportsQueue)
+        XCTAssertTrue(caps.supportsQueueEdit)
+        XCTAssertFalse(caps.supportsShuffleRepeat, "Should NOT detect shuffle/repeat on legacy schema")
+        XCTAssertFalse(caps.supportsCrossfade, "Should NOT detect crossfade on legacy schema")
     }
 
     func testMCPToolEnumExtraction() {
@@ -839,7 +891,15 @@ final class SonosFlowTests: XCTestCase {
         ]
 
         let backend = SonosCloudBackend()
-        let np = try backend.parseNowPlayingResponse(mcpWrapper, groupId: "RINCON_MOVE:2", volume: 22, isMuted: false)
+        let np = try backend.parseNowPlayingResponse(
+            mcpWrapper,
+            groupId: "RINCON_MOVE:2",
+            volume: 22,
+            isMuted: false,
+            shuffle: true,
+            repeatMode: "all",
+            crossfade: false
+        )
 
         XCTAssertEqual(np.title, "Poison")
         XCTAssertEqual(np.artist, "Alice Cooper")
@@ -847,6 +907,9 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertEqual(np.duration, "4:29")
         XCTAssertEqual(np.volume, 22)
         XCTAssertEqual(np.trackURI, "https://example.com/art.jpg")
+        XCTAssertEqual(np.shuffle, true)
+        XCTAssertEqual(np.repeatMode, "all")
+        XCTAssertEqual(np.crossfade, false)
 
         XCTAssertNotNil(np.upNext)
         XCTAssertEqual(np.upNext?.title, "Bed of Nails")

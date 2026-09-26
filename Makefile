@@ -1,4 +1,4 @@
-.PHONY: all build run run-cli spike official-spike test app install uninstall docs-install docs-dev docs-build docs-preview clean help
+.PHONY: all build run run-cli spike official-spike test app install uninstall diagrams docs-install docs-dev docs-build docs-preview clean help
 
 all: build
 
@@ -17,6 +17,7 @@ help:
 	@echo "  make app          - Build optimized release SonosFlow.app bundle"
 	@echo "  make install      - Install release bundle to ~/Applications (or INSTALL_DIR=...)"
 	@echo "  make uninstall    - Remove bundle from ~/Applications"
+	@echo "  make diagrams     - Render Graphviz architecture diagrams to WebP"
 	@echo "  make docs-install - Install Astro Starlight docs dependencies"
 	@echo "  make docs-dev     - Run local Starlight documentation server"
 	@echo "  make docs-build   - Build static production documentation site"
@@ -82,6 +83,9 @@ uninstall:
 	@echo "ℹ️  User settings, Keychain tokens, and artwork cache were preserved."
 	@echo "   To remove settings: defaults delete com.sonosflow.app"
 	@echo "   To remove artwork cache: rm -rf ~/Library/Caches/com.sonosflow.app"
+
+diagrams:
+	@./scripts/render-diagrams.sh
 
 docs-install:
 	@echo "📦 Installing Starlight documentation dependencies..."

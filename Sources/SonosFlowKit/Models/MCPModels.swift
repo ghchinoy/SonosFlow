@@ -40,6 +40,31 @@ public struct MCPTool: Codable, Identifiable, Equatable, Sendable {
         }
         return []
     }
+
+    /// Checks if a property exists in inputSchema
+    public func hasProperty(_ propName: String) -> Bool {
+        guard let schema = inputSchema,
+              let props = schema["properties"] as? [String: Any] else {
+            return false
+        }
+        return props[propName] != nil
+    }
+
+    /// Checks if a property's enum or description mentions a keyword
+    public func propertyMentions(_ propName: String, keyword: String) -> Bool {
+        guard let schema = inputSchema,
+              let props = schema["properties"] as? [String: Any],
+              let prop = props[propName] as? [String: Any] else {
+            return false
+        }
+        if let enumVals = prop["enum"] as? [String], enumVals.contains(where: { $0.localizedCaseInsensitiveContains(keyword) }) {
+            return true
+        }
+        if let desc = prop["description"] as? String, desc.localizedCaseInsensitiveContains(keyword) {
+            return true
+        }
+        return false
+    }
 }
 
 public enum MCPServerStatus: Equatable {
