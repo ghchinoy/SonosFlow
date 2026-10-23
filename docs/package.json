@@ -10,11 +10,11 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.42.0",
+    "@astrojs/starlight": "^0.42.6",
     "@catppuccin/starlight": "^2.1.0",
-    "astro": "^7.2.0",
-    "sharp": "^0.33.5",
-    "starlight-image-zoom": "^0.16.0"
+    "astro": "^7.4.2",
+    "sharp": "^0.35.5",
+    "starlight-image-zoom": "^0.16.2"
   },
   "devDependencies": {
     "typescript": "^5.7.3"
