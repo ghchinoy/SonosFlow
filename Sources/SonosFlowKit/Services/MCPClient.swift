@@ -1,12 +1,35 @@
 import Foundation
 
+private final class ProcessHolder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var process: Process?
+
+    func set(_ p: Process?) {
+        lock.lock()
+        self.process = p
+        lock.unlock()
+    }
+
+    func terminateIfRunning() {
+        lock.lock()
+        let p = process
+        process = nil
+        lock.unlock()
+        if let p = p, p.isRunning {
+            p.terminationHandler = nil
+            p.terminate()
+        }
+    }
+}
+
 public actor MCPClient {
     private var process: Process?
+    private let processHolder = ProcessHolder()
     private var stdinPipe: Pipe?
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
     private var isRunning: Bool = false
-    private var pendingRequests: [Int: CheckedContinuation<[String: Any], Error>] = [:]
+    private var pendingRequests: [Int: CheckedContinuation<Data, Error>] = [:]
     private var requestIdCounter: Int = 0
     private var buffer = Data()
     private var stdoutContinuation: AsyncStream<Data>.Continuation?
@@ -81,6 +104,7 @@ public actor MCPClient {
         p.standardError = serr
 
         self.process = p
+        self.processHolder.set(p)
         self.stdinPipe = sin
         self.stdoutPipe = sout
         self.stderrPipe = serr
@@ -148,6 +172,7 @@ public actor MCPClient {
             p.terminate()
             AppLogger.shared.log("mcp-sonos process terminated", category: "MCP")
         }
+        processHolder.set(nil)
         process = nil
         stdinPipe = nil
         stdoutPipe = nil
@@ -158,6 +183,11 @@ public actor MCPClient {
             continuation.resume(throwing: NSError(domain: "MCPClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "Process stopped."]))
         }
         pendingRequests.removeAll()
+    }
+
+    /// Synchronous best-effort termination safe to invoke from `applicationWillTerminate`.
+    public nonisolated func terminateSynchronously() {
+        processHolder.terminateIfRunning()
     }
 
     private static let maxStdoutBufferBytes = 16 * 1024 * 1024 // 16 MB safety cap
@@ -181,10 +211,10 @@ public actor MCPClient {
 
         for line in linesToProcess {
             if let jsonData = line.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                if let reqId = json["id"] as? Int, let continuation = pendingRequests.removeValue(forKey: reqId) {
-                    continuation.resume(returning: json)
-                }
+               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+               let reqId = json["id"] as? Int,
+               let continuation = pendingRequests.removeValue(forKey: reqId) {
+                continuation.resume(returning: jsonData)
             }
         }
     }
@@ -194,7 +224,7 @@ public actor MCPClient {
         return requestIdCounter
     }
 
-    public func sendRequest(method: String, params: [String: Any], timeoutSeconds: TimeInterval = 20.0) async throws -> [String: Any] {
+    private func sendRequestRaw(method: String, params: [String: Any], timeoutSeconds: TimeInterval = 20.0) async throws -> [String: Any] {
         guard isRunning, let stdin = stdinPipe?.fileHandleForWriting else {
             throw NSError(domain: "MCPClient", code: 2, userInfo: [NSLocalizedDescriptionKey: "Sonos MCP Server is not running."])
         }
@@ -215,11 +245,16 @@ public actor MCPClient {
             await self?.handleTimeout(reqId: reqId, method: method, timeoutSeconds: timeoutSeconds)
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
+        let responseData = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
             self.pendingRequests[reqId] = continuation
             stdin.write(data)
             stdin.write("\n".data(using: .utf8)!)
         }
+
+        guard let parsed = try JSONSerialization.jsonObject(with: responseData) as? [String: Any] else {
+            throw NSError(domain: "MCPClient", code: 4, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON response from MCP server"])
+        }
+        return parsed
     }
 
     private func handleTimeout(reqId: Int, method: String, timeoutSeconds: TimeInterval) {
@@ -246,7 +281,7 @@ public actor MCPClient {
         try start(binaryPath: binaryPath)
 
         // 1. Initialize with 12s timeout
-        let initResponse = try await sendRequest(
+        let initResponse = try await sendRequestRaw(
             method: "initialize",
             params: [
                 "protocolVersion": "2024-11-05",
@@ -272,7 +307,7 @@ public actor MCPClient {
         try sendNotification(method: "notifications/initialized")
 
         // 3. List tools with 12s timeout
-        let toolsResponse = try await sendRequest(method: "tools/list", params: [:], timeoutSeconds: 12.0)
+        let toolsResponse = try await sendRequestRaw(method: "tools/list", params: [:], timeoutSeconds: 12.0)
         var toolsList: [MCPTool] = []
 
         if let result = toolsResponse["result"] as? [String: Any],
@@ -294,8 +329,8 @@ public actor MCPClient {
         return (serverInfo, toolsList)
     }
 
-    public func callTool(name: String, arguments: [String: Any], timeoutSeconds: TimeInterval = 15.0) async throws -> [String: Any] {
-        let response = try await sendRequest(
+    private func callToolRaw(name: String, arguments: [String: Any], timeoutSeconds: TimeInterval = 15.0) async throws -> [String: Any] {
+        let response = try await sendRequestRaw(
             method: "tools/call",
             params: [
                 "name": name,
@@ -326,6 +361,15 @@ public actor MCPClient {
         }
 
         return result
+    }
+
+    public func callToolVoid(name: String, arguments: [String: Any], timeoutSeconds: TimeInterval = 15.0) async throws {
+        _ = try await callToolRaw(name: name, arguments: arguments, timeoutSeconds: timeoutSeconds)
+    }
+
+    public func callToolDecoded<T: Decodable & Sendable>(name: String, arguments: [String: Any], as type: T.Type, timeoutSeconds: TimeInterval = 15.0) async throws -> T {
+        let result = try await callToolRaw(name: name, arguments: arguments, timeoutSeconds: timeoutSeconds)
+        return try Self.decodeResult(result, as: type)
     }
 
     /// Decodes a tool call result object into a Decodable type

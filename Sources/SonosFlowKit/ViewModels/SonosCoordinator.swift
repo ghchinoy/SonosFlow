@@ -115,6 +115,15 @@ public final class SonosCoordinator: ObservableObject {
         serverStatus = .disconnected
     }
 
+    /// Best-effort synchronous cleanup invoked on application termination.
+    public func terminateBackendSynchronously() {
+        pollTask?.cancel()
+        pollTask = nil
+        if let local = backend as? LocalHomectlBackend {
+            local.service.client.terminateSynchronously()
+        }
+    }
+
     /// Switches the active control engine between Local and Cloud without auto-fallback
     public func switchEngine(to newEngine: ControlEngine, customBackend: (any SonosBackend)? = nil) async {
         guard newEngine != settings.controlEngine else { return }
@@ -171,9 +180,10 @@ public final class SonosCoordinator: ObservableObject {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                // In cloud mode, default to 6.0s polling to respect cloud rate limits & ~220ms latency
-                let defaultInterval = self?.settings.controlEngine == .cloud ? 6.0 : 4.0
-                let interval = max(2.0, self?.settings.pollingInterval ?? defaultInterval)
+                let isCloud = self?.backend.engine == .cloud
+                let configured = self?.settings.pollingInterval ?? 4.0
+                // In cloud mode, enforce >= 6.0s interval to respect cloud rate limits & ~220ms latency
+                let interval = isCloud ? max(6.0, configured) : max(2.0, configured)
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 guard let self = self, !Task.isCancelled else { break }
 

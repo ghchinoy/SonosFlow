@@ -1,6 +1,6 @@
 import Foundation
 
-public struct MCPServerInfo: Codable, Equatable {
+public struct MCPServerInfo: Codable, Equatable, Sendable {
     public let name: String
     public let version: String?
 
@@ -67,7 +67,7 @@ public struct MCPTool: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
-public enum MCPServerStatus: Equatable {
+public enum MCPServerStatus: Equatable, Sendable {
     case disconnected
     case connecting
     case connected(serverInfo: MCPServerInfo, tools: [MCPTool])

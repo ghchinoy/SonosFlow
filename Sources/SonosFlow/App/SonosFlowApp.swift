@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import SonosFlowKit
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var coordinatorReference: SonosCoordinator?
 
@@ -16,7 +17,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        // Keep MenuBarExtra alive when the main window is closed
+        return false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            NSApp.activate(ignoringOtherApps: true)
+            for window in NSApp.windows where !window.className.contains("NSStatusBarWindow") && window.canBecomeKey {
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
         return true
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        coordinatorReference?.terminateBackendSynchronously()
     }
 
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
@@ -106,7 +122,7 @@ struct SonosFlowApp: App {
     @StateObject private var coordinator = SonosCoordinator()
 
     var body: some Scene {
-        WindowGroup("SonosFlow") {
+        WindowGroup("SonosFlow", id: "main") {
             MainSplitView(coordinator: coordinator)
                 .onAppear {
                     appDelegate.coordinatorReference = coordinator
@@ -158,12 +174,14 @@ struct SonosFlowApp: App {
                 }
                 .keyboardShortcut("m", modifiers: .command)
 
-                Divider()
+                if coordinator.capabilities.supportsAudioStreams {
+                    Divider()
 
-                Button("Play Audio Stream...") {
-                    coordinator.showingStreamPlayer = true
+                    Button("Play Audio Stream...") {
+                        coordinator.showingStreamPlayer = true
+                    }
+                    .keyboardShortcut("u", modifiers: .command)
                 }
-                .keyboardShortcut("u", modifiers: .command)
             }
 
             // Queue Menu
@@ -172,19 +190,22 @@ struct SonosFlowApp: App {
                     Task { await coordinator.refreshQueue() }
                 }
                 .keyboardShortcut("r", modifiers: .command)
+                .disabled(!coordinator.capabilities.supportsQueue)
 
                 Button("Reload MCP Server") {
                     Task { await coordinator.reloadServer() }
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
 
-                Divider()
+                if coordinator.capabilities.supportsQueueEdit {
+                    Divider()
 
-                Button("Clear Queue...") {
-                    coordinator.showingClearQueueConfirmation = true
+                    Button("Clear Queue...") {
+                        coordinator.showingClearQueueConfirmation = true
+                    }
+                    .keyboardShortcut(.delete, modifiers: .command)
+                    .disabled(coordinator.queueItems.isEmpty)
                 }
-                .keyboardShortcut(.delete, modifiers: .command)
-                .disabled(coordinator.queueItems.isEmpty)
             }
 
             // Rooms Menu

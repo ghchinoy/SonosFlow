@@ -2,26 +2,32 @@ import Foundation
 
 // MARK: - Discovery & Speakers
 
-public struct SonosDevice: Codable, Identifiable, Hashable {
+public struct SonosDevice: Codable, Identifiable, Hashable, Sendable {
     public var id: String { rinconID.isEmpty ? ip : rinconID }
     public let name: String
     public let ip: String
     public let rinconID: String
     public let modelName: String?
     public let modelNumber: String?
+    public let generation: String?
+    public let isRenderer: Bool?
 
     public init(
         name: String,
         ip: String,
         rinconID: String,
         modelName: String? = nil,
-        modelNumber: String? = nil
+        modelNumber: String? = nil,
+        generation: String? = nil,
+        isRenderer: Bool? = nil
     ) {
         self.name = name
         self.ip = ip
         self.rinconID = rinconID
         self.modelName = modelName
         self.modelNumber = modelNumber
+        self.generation = generation
+        self.isRenderer = isRenderer
     }
 
     enum CodingKeys: String, CodingKey {
@@ -30,17 +36,19 @@ public struct SonosDevice: Codable, Identifiable, Hashable {
         case rinconID = "RinconID"
         case modelName = "ModelName"
         case modelNumber = "ModelNumber"
+        case generation = "Generation"
+        case isRenderer = "IsRenderer"
     }
 }
 
-public struct ListSpeakersResult: Codable {
+public struct ListSpeakersResult: Codable, Sendable {
     public let count: Int
     public let speakers: [SonosDevice]
 }
 
 // MARK: - Topology
 
-public struct TopologyMember: Codable, Identifiable, Hashable {
+public struct TopologyMember: Codable, Identifiable, Hashable, Sendable {
     public var id: String { uuid }
     public let uuid: String
     public let roomName: String
@@ -71,7 +79,7 @@ public struct TopologyMember: Codable, Identifiable, Hashable {
     }
 }
 
-public struct TopologyGroup: Codable, Identifiable, Hashable {
+public struct TopologyGroup: Codable, Identifiable, Hashable, Sendable {
     public let id: String
     public let coordinatorUUID: String
     public let isPair: Bool
@@ -144,7 +152,7 @@ public struct TopologyGroup: Codable, Identifiable, Hashable {
     }
 }
 
-public struct TopologyResult: Codable {
+public struct TopologyResult: Codable, Sendable {
     public let count: Int
     public let groups: [TopologyGroup]
 
@@ -186,7 +194,7 @@ public struct UpNextTrack: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-public struct NowPlayingResult: Codable, Equatable {
+public struct NowPlayingResult: Codable, Equatable, Sendable {
     public let ip: String
     public let state: String
     public let volume: Int
@@ -325,7 +333,7 @@ public struct NowPlayingResult: Codable, Equatable {
 
 // MARK: - Queue
 
-public struct QueueItem: Codable, Identifiable, Hashable {
+public struct QueueItem: Codable, Identifiable, Hashable, Sendable {
     public var id: String { "\(position)_\(trackID)" }
     public let position: Int
     public let trackID: String
@@ -382,7 +390,7 @@ public struct QueueItem: Codable, Identifiable, Hashable {
     }
 }
 
-public struct QueueResult: Codable {
+public struct QueueResult: Codable, Sendable {
     public let items: [QueueItem]
     public let returned: Int
     public let totalMatches: Int
@@ -410,7 +418,7 @@ public struct QueueResult: Codable {
 
 // MARK: - Favorites
 
-public struct SonosFavorite: Codable, Identifiable, Hashable {
+public struct SonosFavorite: Codable, Identifiable, Hashable, Sendable {
     public let id: String
     public let title: String
     public let type: String?
@@ -461,7 +469,7 @@ public struct SonosFavorite: Codable, Identifiable, Hashable {
     }
 }
 
-public struct ListFavoritesResult: Codable {
+public struct ListFavoritesResult: Codable, Sendable {
     public let count: Int
     public let favorites: [SonosFavorite]
 
@@ -473,7 +481,7 @@ public struct ListFavoritesResult: Codable {
 
 // MARK: - Audio Streams & Presets
 
-public struct SavedStream: Codable, Identifiable, Hashable {
+public struct SavedStream: Codable, Identifiable, Hashable, Sendable {
     public var id: String { url }
     public let title: String
     public let url: String

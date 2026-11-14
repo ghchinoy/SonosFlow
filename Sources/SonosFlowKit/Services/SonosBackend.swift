@@ -25,6 +25,8 @@ public protocol SonosBackend: AnyObject, Sendable {
     func setVolume(target: SonosTarget, volume: Int) async throws
     func adjustVolume(target: SonosTarget, delta: Int) async throws
     func setMute(target: SonosTarget, muted: Bool) async throws
+    func getPlayerVolume(target: SonosTarget) async throws -> Int
+    func setPlayerVolume(target: SonosTarget, volume: Int) async throws
 
     // MARK: - Favorites
     func listFavorites(target: SonosTarget?) async throws -> [SonosFavorite]

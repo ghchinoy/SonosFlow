@@ -4,18 +4,31 @@ import Foundation
 public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
     public let engine: ControlEngine = .cloud
     public let client: CloudMCPClient
-    public private(set) var capabilities: ServerCapabilities = .cloudDefault
+    private let lock = NSLock()
+    private var _capabilities: ServerCapabilities = .cloudDefault
 
     /// Cached playback states by groupId discovered during topology query
-    private var cachedPlaybackStates: [String: String] = [:]
+    private var _cachedPlaybackStates: [String: String] = [:]
+
+    public var capabilities: ServerCapabilities {
+        lock.lock()
+        defer { lock.unlock() }
+        return _capabilities
+    }
 
     public init(client: CloudMCPClient = CloudMCPClient()) {
         self.client = client
     }
 
+    private func setCapabilities(_ newCaps: ServerCapabilities) {
+        lock.lock()
+        self._capabilities = newCaps
+        lock.unlock()
+    }
+
     public func connect() async throws -> (serverInfo: MCPServerInfo, tools: [MCPTool]) {
         let (info, tools) = try await client.initialize()
-        self.capabilities = ServerCapabilities(engine: .cloud, tools: tools)
+        setCapabilities(ServerCapabilities(engine: .cloud, tools: tools))
         return (info, tools)
     }
 
@@ -27,12 +40,23 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
         return await client.hasValidToken()
     }
 
+    private func setCachedPlaybackState(_ state: String, for groupId: String) {
+        lock.lock()
+        _cachedPlaybackStates[groupId] = state
+        lock.unlock()
+    }
+
+    private func cachedPlaybackState(for groupId: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return _cachedPlaybackStates[groupId]
+    }
+
     // MARK: - Discovery & Topology
 
     public func getTopology(target: SonosTarget?) async throws -> TopologyResult {
         let raw = try await client.callTool(name: "get_households_and_groups_and_players", arguments: [:])
-        let parsed = try parseTopologyResponse(raw)
-        return parsed
+        return try parseTopologyResponse(raw)
     }
 
     // MARK: - Playback & Transport
@@ -42,14 +66,21 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
             throw NSError(domain: "SonosCloudBackend", code: 400, userInfo: [NSLocalizedDescriptionKey: "Missing group ID for cloud now playing query."])
         }
 
-        // 1. Query what's playing
-        let raw = try await client.callTool(name: "get_now_playing", arguments: ["group_id": gid])
+        let checkModes = capabilities.supportsShuffleRepeat
 
-        // 2. Query real group volume & mute state
+        // Run independent cloud RPCs concurrently (~1x latency instead of ~3x serial)
+        async let rawNP = client.callTool(name: "get_now_playing", arguments: ["group_id": gid])
+        async let rawVol = try? client.callTool(name: "get_group_volume", arguments: ["group_id": gid])
+        async let rawMode: Any? = checkModes
+            ? (try? client.callTool(name: "get_shuffle_repeat_crossfade", arguments: ["group_id": gid]))
+            : nil
+
+        let npPayload = try await rawNP
+
         var volume = 20
         var isMuted = false
-        if let rawVol = try? await client.callTool(name: "get_group_volume", arguments: ["group_id": gid]),
-           let volDict = try? unwrapMCPJSON(rawVol) as? [String: Any] {
+        if let volRes = await rawVol,
+           let volDict = try? unwrapMCPJSON(volRes) as? [String: Any] {
             if let v = volDict["volume"] as? Int {
                 volume = v
             }
@@ -58,13 +89,11 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
             }
         }
 
-        // 3. Query shuffle/repeat/crossfade state
         var shuffle: Bool? = nil
         var repeatMode: String? = nil
         var crossfade: Bool? = nil
-        if capabilities.supportsShuffleRepeat,
-           let rawMode = try? await client.callTool(name: "get_shuffle_repeat_crossfade", arguments: ["group_id": gid]),
-           let modeDict = try? unwrapMCPJSON(rawMode) as? [String: Any] {
+        if let modeRes = await rawMode,
+           let modeDict = try? unwrapMCPJSON(modeRes) as? [String: Any] {
             shuffle = modeDict["shuffle"] as? Bool
             let repAll = modeDict["repeat"] as? Bool ?? false
             let repOne = modeDict["repeatOne"] as? Bool ?? false
@@ -79,7 +108,7 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
         }
 
         return try parseNowPlayingResponse(
-            raw,
+            npPayload,
             groupId: gid,
             volume: volume,
             isMuted: isMuted,
@@ -92,13 +121,13 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
     public func play(target: SonosTarget) async throws {
         guard let gid = target.groupId else { return }
         _ = try await client.callTool(name: "resume", arguments: ["group_id": gid])
-        cachedPlaybackStates[gid] = "PLAYING"
+        setCachedPlaybackState("PLAYING", for: gid)
     }
 
     public func pause(target: SonosTarget) async throws {
         guard let gid = target.groupId else { return }
         _ = try await client.callTool(name: "pause", arguments: ["group_id": gid])
-        cachedPlaybackStates[gid] = "PAUSED_PLAYBACK"
+        setCachedPlaybackState("PAUSED_PLAYBACK", for: gid)
     }
 
     public func next(target: SonosTarget) async throws {
@@ -149,6 +178,22 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
         _ = try await client.callTool(name: "set_group_mute", arguments: [
             "group_id": gid,
             "muted": muted
+        ])
+    }
+
+    public func getPlayerVolume(target: SonosTarget) async throws -> Int {
+        guard let pid = target.playerId, !pid.isEmpty else {
+            throw NSError(domain: "SonosCloudBackend", code: 400, userInfo: [NSLocalizedDescriptionKey: "Missing player_id for cloud player volume."])
+        }
+        let raw = try await client.callTool(name: "get_player_volume", arguments: ["player_id": pid])
+        return parsePlayerVolumeResponse(raw)
+    }
+
+    public func setPlayerVolume(target: SonosTarget, volume: Int) async throws {
+        guard let pid = target.playerId, !pid.isEmpty else { return }
+        _ = try await client.callTool(name: "set_player_volume", arguments: [
+            "player_id": pid,
+            "volume": max(0, min(100, volume))
         ])
     }
 
@@ -221,7 +266,14 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
     // MARK: - Universal MCP Payload Unwrapping
 
     public static func unwrapMCPJSON(_ raw: Any) throws -> Any {
-        if let dict = raw as? [String: Any] {
+        let unwrappedObj: Any
+        if let data = raw as? Data {
+            unwrappedObj = (try? JSONSerialization.jsonObject(with: data)) ?? raw
+        } else {
+            unwrappedObj = raw
+        }
+
+        if let dict = unwrappedObj as? [String: Any] {
             if let content = dict["content"] as? [[String: Any]],
                let firstText = content.first?["text"] as? String {
                 if let data = firstText.data(using: .utf8),
@@ -231,7 +283,7 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
                 return firstText
             }
             return dict
-        } else if let arr = raw as? [[String: Any]] {
+        } else if let arr = unwrappedObj as? [[String: Any]] {
             if let firstText = arr.first?["text"] as? String,
                let data = firstText.data(using: .utf8),
                let parsed = try? JSONSerialization.jsonObject(with: data) {
@@ -239,7 +291,7 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
             }
             return arr
         }
-        return raw
+        return unwrappedObj
     }
 
     private func unwrapMCPJSON(_ raw: Any) throws -> Any {
@@ -247,6 +299,14 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
     }
 
     // MARK: - Parsing Helpers
+
+    public func parsePlayerVolumeResponse(_ raw: Any) -> Int {
+        guard let dict = try? unwrapMCPJSON(raw) as? [String: Any] else { return 20 }
+        if let muted = dict["muted"] as? Bool, muted {
+            return 0
+        }
+        return dict["volume"] as? Int ?? 20
+    }
 
     public func parseTopologyResponse(_ raw: Any) throws -> TopologyResult {
         let unwrapped = try unwrapMCPJSON(raw)
@@ -268,25 +328,26 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
         for household in householdsList {
             let householdId = household["householdId"] as? String ?? household["id"] as? String ?? ""
 
-            // Groups inside household
             guard let groups = household["groups"] as? [[String: Any]] else { continue }
 
             for g in groups {
                 guard let gid = g["groupId"] as? String ?? g["id"] as? String else { continue }
 
-                // Cache state
                 if let pState = g["playbackState"] as? String {
-                    cachedPlaybackStates[gid] = normalizePlaybackState(pState)
+                    setCachedPlaybackState(normalizePlaybackState(pState), for: gid)
                 }
 
-                // Players in group
                 let rawPlayers = g["players"] as? [[String: Any]] ?? []
                 var members: [TopologyMember] = []
+                var hasBondedPair = false
 
                 for (idx, p) in rawPlayers.enumerated() {
                     let pid = p["playerId"] as? String ?? p["id"] as? String ?? UUID().uuidString
                     let name = p["name"] as? String ?? "Sonos Speaker"
-                    let isCoordinator = (idx == 0) // First player acts as coordinator
+                    if let devices = p["devices"] as? [[String: Any]], devices.count == 2 {
+                        hasBondedPair = true
+                    }
+                    let isCoordinator = (idx == 0)
                     members.append(TopologyMember(
                         uuid: pid,
                         roomName: name,
@@ -296,7 +357,7 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
                     ))
                 }
 
-                let isPair = (members.count == 2)
+                let isPair = (members.count == 2) || hasBondedPair
                 let coordinatorUUID = members.first?.uuid ?? ""
 
                 let grp = TopologyGroup(
@@ -327,7 +388,7 @@ public final class SonosCloudBackend: SonosBackend, @unchecked Sendable {
 
         // Playback state: from payload or cached from topology
         let rawState = payload["playbackState"] as? String
-        let state = normalizePlaybackState(rawState ?? cachedPlaybackStates[groupId] ?? "STOPPED")
+        let state = normalizePlaybackState(rawState ?? cachedPlaybackState(for: groupId) ?? "STOPPED")
 
         // Track data (Sonos 27mcp uses "currentTrack", with "track" as fallback)
         let track = payload["currentTrack"] as? [String: Any] ?? payload["track"] as? [String: Any]

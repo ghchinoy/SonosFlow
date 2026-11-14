@@ -304,7 +304,7 @@ public actor CloudMCPClient {
 
     // MARK: - Tool Invocation
 
-    public func callTool(name: String, arguments: [String: Any] = [:]) async throws -> Any {
+    public func callTool(name: String, arguments: [String: Any] = [:]) async throws -> Data {
         let token = try await refreshTokenIfNeeded()
         requestIdCounter += 1
 
@@ -343,14 +343,14 @@ public actor CloudMCPClient {
                 }
                 throw NSError(domain: "CloudMCPClient", code: -5, userInfo: [NSLocalizedDescriptionKey: errDetail])
             }
-            return resultDict
+            return try JSONSerialization.data(withJSONObject: resultDict)
         }
 
-        if let result = json["result"] {
-            return result
+        if let result = json["result"], JSONSerialization.isValidJSONObject(result) {
+            return try JSONSerialization.data(withJSONObject: result)
         }
 
-        return json
+        return data
     }
 
     // MARK: - Security & Helper Decoders
@@ -481,7 +481,8 @@ private actor LoopbackOAuthListener {
                 await self?.fail(with: NSError(domain: "CloudMCPClient", code: 408, userInfo: [NSLocalizedDescriptionKey: "Sonos sign-in timed out after \(Int(timeoutSeconds))s."]))
             }
 
-            listener.newConnectionHandler = { [weak self] connection in
+            let listenerRef = self
+            listener.newConnectionHandler = { connection in
                 connection.start(queue: .global())
                 connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { data, _, _, _ in
                     guard let data = data, let req = String(data: data, encoding: .utf8) else {
@@ -517,8 +518,8 @@ private actor LoopbackOAuthListener {
                         connection.send(content: html.data(using: .utf8), completion: .contentProcessed({ _ in
                             connection.cancel()
                         }))
-                        Task { [weak self] in
-                            await self?.resumeWithCode(code)
+                        Task {
+                            await listenerRef.resumeWithCode(code)
                         }
                     } catch {
                         let html = """
@@ -538,17 +539,17 @@ private actor LoopbackOAuthListener {
                         connection.send(content: html.data(using: .utf8), completion: .contentProcessed({ _ in
                             connection.cancel()
                         }))
-                        Task { [weak self] in
-                            await self?.fail(with: error)
+                        Task {
+                            await listenerRef.fail(with: error)
                         }
                     }
                 }
             }
 
-            listener.stateUpdateHandler = { [weak self] state in
+            listener.stateUpdateHandler = { state in
                 if case .failed(let err) = state {
-                    Task { [weak self] in
-                        await self?.fail(with: err)
+                    Task {
+                        await listenerRef.fail(with: err)
                     }
                 }
             }

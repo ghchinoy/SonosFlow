@@ -3,6 +3,7 @@ import AppKit
 
 public struct MenuBarView: View {
     @ObservedObject var coordinator: SonosCoordinator
+    @Environment(\.openWindow) private var openWindow
 
     public init(coordinator: SonosCoordinator) {
         self.coordinator = coordinator
@@ -160,10 +161,7 @@ public struct MenuBarView: View {
             // Footer Actions
             HStack {
                 Button("Open SonosFlow") {
-                    NSApp.activate(ignoringOtherApps: true)
-                    for window in NSApp.windows where !window.className.contains("NSStatusBarWindow") {
-                        window.makeKeyAndOrderFront(nil)
-                    }
+                    openMainWindow()
                 }
                 .font(.caption)
                 .buttonStyle(.plain)
@@ -172,7 +170,7 @@ public struct MenuBarView: View {
 
                 Button("Miniplayer") {
                     coordinator.isMiniPlayerMode = true
-                    NSApp.activate(ignoringOtherApps: true)
+                    openMainWindow()
                 }
                 .font(.caption)
                 .buttonStyle(.plain)
@@ -191,6 +189,18 @@ public struct MenuBarView: View {
         }
         .padding(14)
         .frame(width: 300)
+    }
+
+    private func openMainWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        let appWindows = NSApp.windows.filter {
+            !$0.className.contains("NSStatusBarWindow") && $0.canBecomeKey
+        }
+        if let existing = appWindows.first {
+            existing.makeKeyAndOrderFront(nil)
+        } else {
+            openWindow(id: "main")
+        }
     }
 
     private var isPlaying: Bool {

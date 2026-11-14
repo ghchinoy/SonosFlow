@@ -56,13 +56,13 @@ public struct GroupVolumePopoverView: View {
                         .foregroundColor(.secondary)
 
                     ForEach(group.members) { member in
-                        if let ip = member.ip, !ip.isEmpty {
+                        if member.ip?.isEmpty == false || !member.uuid.isEmpty {
                             MemberVolumeRow(
                                 member: member,
-                                volume: coordinator.memberVolumes[ip] ?? coordinator.volume,
+                                volume: coordinator.memberVolumes[member.id] ?? coordinator.volume,
                                 isCoordinator: member.uuid == group.coordinatorUUID,
                                 onVolumeChange: { newVol in
-                                    coordinator.setMemberVolume(memberIP: ip, volume: newVol)
+                                    coordinator.setMemberVolume(member: member, in: group, volume: newVol)
                                 }
                             )
                         }

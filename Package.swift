@@ -3,6 +3,10 @@
 
 import PackageDescription
 
+let strictConcurrencySettings: [SwiftSetting] = [
+    .enableExperimentalFeature("StrictConcurrency")
+]
+
 let package = Package(
     name: "SonosFlow",
     platforms: [
@@ -18,27 +22,32 @@ let package = Package(
     targets: [
         .target(
             name: "SonosFlowKit",
-            path: "Sources/SonosFlowKit"
+            path: "Sources/SonosFlowKit",
+            swiftSettings: strictConcurrencySettings
         ),
         .executableTarget(
             name: "SonosFlowSpike",
             dependencies: ["SonosFlowKit"],
-            path: "Sources/SonosFlowSpike"
+            path: "Sources/SonosFlowSpike",
+            swiftSettings: strictConcurrencySettings
         ),
         .executableTarget(
             name: "SonosOfficialMCPSpike",
             dependencies: ["SonosFlowKit"],
-            path: "Sources/SonosOfficialMCPSpike"
+            path: "Sources/SonosOfficialMCPSpike",
+            swiftSettings: strictConcurrencySettings
         ),
         .executableTarget(
             name: "SonosFlow",
             dependencies: ["SonosFlowKit"],
-            path: "Sources/SonosFlow"
+            path: "Sources/SonosFlow",
+            swiftSettings: strictConcurrencySettings
         ),
         .testTarget(
             name: "SonosFlowTests",
             dependencies: ["SonosFlowKit"],
-            path: "Tests/SonosFlowTests"
+            path: "Tests/SonosFlowTests",
+            swiftSettings: strictConcurrencySettings
         )
     ]
 )

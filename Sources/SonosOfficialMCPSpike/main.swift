@@ -51,7 +51,8 @@ actor LoopbackAuthListener {
         return try await withCheckedThrowingContinuation { continuation in
             self.codeContinuation = continuation
 
-            listener.newConnectionHandler = { [weak self] connection in
+            let listenerRef = self
+            listener.newConnectionHandler = { connection in
                 connection.start(queue: .global())
                 connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { data, _, isComplete, error in
                     guard let data = data, let req = String(data: data, encoding: .utf8) else {
@@ -82,8 +83,8 @@ actor LoopbackAuthListener {
                             connection.cancel()
                         }))
 
-                        Task { [weak self] in
-                            await self?.resumeWithCode(code)
+                        Task {
+                            await listenerRef.resumeWithCode(code)
                         }
                     }
                 }

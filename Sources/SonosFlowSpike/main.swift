@@ -8,8 +8,7 @@ struct SonosFlowSpike {
         print("🎵 SonosFlow MCP Headless Verification Spike")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-        let settings = AppSettings.shared
-        let binaryPath = settings.effectiveMcpBinaryPath
+        let binaryPath = AppSettings.shared.effectiveMcpBinaryPath
         print("📍 Effective mcp-sonos path: \(binaryPath)")
 
         guard FileManager.default.isExecutableFile(atPath: binaryPath) else {

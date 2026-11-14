@@ -59,7 +59,9 @@ public struct MainSplitView: View {
             }
         }
         .task {
-            await coordinator.connectAndInitialize()
+            if case .disconnected = coordinator.serverStatus {
+                await coordinator.connectAndInitialize()
+            }
         }
     }
 

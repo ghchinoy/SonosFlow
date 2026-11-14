@@ -44,11 +44,40 @@ extension SonosCoordinator {
         }
     }
 
+    private func memberTarget(for member: TopologyMember, in group: TopologyGroup) -> SonosTarget? {
+        if let ip = member.ip, !ip.isEmpty {
+            return .local(ip)
+        }
+        if !member.uuid.isEmpty {
+            return .cloud(householdId: group.householdId ?? "", groupId: group.id, playerId: member.uuid)
+        }
+        return nil
+    }
+
     public func refreshMemberVolumes(for group: TopologyGroup) async {
         for member in group.members {
-            guard let ip = member.ip, !ip.isEmpty else { continue }
-            if let np = try? await backend.getNowPlaying(target: .local(ip)) {
-                self.memberVolumes[ip] = Double(np.volume)
+            guard let target = memberTarget(for: member, in: group) else { continue }
+            if let vol = try? await backend.getPlayerVolume(target: target) {
+                self.memberVolumes[member.id] = Double(vol)
+            }
+        }
+    }
+
+    public func setMemberVolume(member: TopologyMember, in group: TopologyGroup, volume: Double) {
+        guard let target = memberTarget(for: member, in: group) else { return }
+        let clamped = max(0.0, min(100.0, volume))
+        let key = member.id
+        self.memberVolumes[key] = clamped
+
+        memberVolumeDebounceTasks[key]?.cancel()
+        memberVolumeDebounceTasks[key] = Task {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            guard !Task.isCancelled else { return }
+            do {
+                try await backend.setPlayerVolume(target: target, volume: Int(clamped))
+            } catch {
+                let desc = target.localIP ?? target.playerId ?? key
+                AppLogger.shared.warning("Failed to set member volume on \(desc): \(error)", category: "COORDINATOR")
             }
         }
     }
@@ -62,7 +91,7 @@ extension SonosCoordinator {
             try? await Task.sleep(nanoseconds: 100_000_000)
             guard !Task.isCancelled else { return }
             do {
-                try await backend.setVolume(target: .local(memberIP), volume: Int(clamped))
+                try await backend.setPlayerVolume(target: .local(memberIP), volume: Int(clamped))
             } catch {
                 AppLogger.shared.warning("Failed to set member volume on \(memberIP): \(error)", category: "COORDINATOR")
             }

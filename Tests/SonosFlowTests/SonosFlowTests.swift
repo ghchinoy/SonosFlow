@@ -363,6 +363,7 @@ final class SonosFlowTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testRecentStreamsPersistence() {
         let settings = AppSettings(defaults: UserDefaults(suiteName: "TestDefaults")!)
         let s1 = SavedStream(title: "Stream 1", url: "https://example.com/1.mp3")
@@ -376,6 +377,7 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertEqual(settings.recentStreams.count, 2)
     }
 
+    @MainActor
     func testCustomPresetsPersistence() {
         let defaults = UserDefaults(suiteName: "CustomPresetTestDefaults")!
         defaults.removePersistentDomain(forName: "CustomPresetTestDefaults")
@@ -985,6 +987,8 @@ class MockSonosBackend: SonosBackend, @unchecked Sendable {
     func setVolume(target: SonosTarget, volume: Int) async throws {}
     func adjustVolume(target: SonosTarget, delta: Int) async throws {}
     func setMute(target: SonosTarget, muted: Bool) async throws {}
+    func getPlayerVolume(target: SonosTarget) async throws -> Int { 20 }
+    func setPlayerVolume(target: SonosTarget, volume: Int) async throws {}
     func listFavorites(target: SonosTarget?) async throws -> [SonosFavorite] { favoritesToReturn }
     func playFavorite(target: SonosTarget, favoriteId: String) async throws {}
     func playStream(target: SonosTarget, url: String, title: String?) async throws {}

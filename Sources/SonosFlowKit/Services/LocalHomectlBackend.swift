@@ -5,20 +5,38 @@ public final class LocalHomectlBackend: SonosBackend, @unchecked Sendable {
     public let engine: ControlEngine = .local
     public let service: SonosService
     public let settings: AppSettings
-    public private(set) var capabilities: ServerCapabilities = .localDefault
+    private let lock = NSLock()
+    private var _capabilities: ServerCapabilities = .localDefault
+
+    public var capabilities: ServerCapabilities {
+        lock.lock()
+        defer { lock.unlock() }
+        return _capabilities
+    }
 
     public init(
         service: SonosService = SonosService(),
-        settings: AppSettings = .shared
+        settings: AppSettings
     ) {
         self.service = service
         self.settings = settings
     }
 
+    @MainActor
+    public convenience init(service: SonosService = SonosService()) {
+        self.init(service: service, settings: .shared)
+    }
+
+    private func setCapabilities(_ newCaps: ServerCapabilities) {
+        lock.lock()
+        self._capabilities = newCaps
+        lock.unlock()
+    }
+
     public func connect() async throws -> (serverInfo: MCPServerInfo, tools: [MCPTool]) {
-        let path = settings.effectiveMcpBinaryPath
+        let path = await settings.effectiveMcpBinaryPath
         let (info, tools) = try await service.client.initializeAndVerify(binaryPath: path)
-        self.capabilities = ServerCapabilities(engine: .local, tools: tools)
+        setCapabilities(ServerCapabilities(engine: .local, tools: tools))
         return (info, tools)
     }
 
@@ -105,6 +123,19 @@ public final class LocalHomectlBackend: SonosBackend, @unchecked Sendable {
         if muted {
             try await service.setVolume(ip: ip, volume: 0)
         }
+    }
+
+    public func getPlayerVolume(target: SonosTarget) async throws -> Int {
+        guard let ip = target.localIP else {
+            throw NSError(domain: "LocalHomectlBackend", code: 400, userInfo: [NSLocalizedDescriptionKey: "Missing local IP for player volume."])
+        }
+        let np = try await service.getNowPlaying(ip: ip)
+        return np.volume
+    }
+
+    public func setPlayerVolume(target: SonosTarget, volume: Int) async throws {
+        guard let ip = target.localIP else { return }
+        try await service.setVolume(ip: ip, volume: volume)
     }
 
     // MARK: - Favorites
