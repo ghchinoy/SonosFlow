@@ -2,10 +2,10 @@ import Foundation
 
 extension SonosCoordinator {
     /// Orders discovered speakers prioritizing active coordinator first, stationary/mains speakers next, and battery portables (Move, Roam) last.
-    /// Non-renderer bridge/boost devices (`isRenderer == false`) are excluded.
+    /// Non-renderer bridge/boost devices (`isAudioRenderer == false`) are excluded.
     public nonisolated static func prioritizeSeedSpeakers(speakers: [SonosDevice], activeCoordinatorIP: String?) -> [String] {
         var orderedIPs: [String] = []
-        let renderers = speakers.filter { $0.isRenderer != false }
+        let renderers = speakers.filter { $0.isAudioRenderer }
 
         // 1. If we have an active coordinator IP, try it first
         if let active = activeCoordinatorIP, !active.isEmpty {
@@ -89,7 +89,15 @@ extension SonosCoordinator {
 
         // MARK: - Local UPnP Discovery Route
         do {
-            let speakers = try await sonosService.listSpeakers(refresh: forceNetworkScan)
+            var speakers = try await sonosService.listSpeakers(refresh: forceNetworkScan)
+            if !forceNetworkScan,
+               !speakers.isEmpty,
+               speakers.allSatisfy({ ($0.generation ?? "").isEmpty && $0.isRenderer == false }) {
+                AppLogger.shared.log("Detected legacy sonos_cache.json entries; running rescan to populate S1/S2 & renderer metadata...", category: "COORDINATOR")
+                if let refreshed = try? await sonosService.listSpeakers(refresh: true), !refreshed.isEmpty {
+                    speakers = refreshed
+                }
+            }
             guard !speakers.isEmpty else {
                 if groups.isEmpty {
                     errorMessage = "No Sonos speakers discovered on the local network."

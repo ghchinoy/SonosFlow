@@ -1059,6 +1059,25 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertEqual(seeds, ["192.168.4.99", "192.168.4.120"], "Non-renderer Bridge must be excluded and stationary prioritized")
     }
 
+    func testLegacyCacheZeroValueIsRendererFallback() throws {
+        // Real payload captured from homectl v0.3.0 when sonos_cache.json predates IsRenderer/Generation:
+        // All speakers have Generation omitted (nil) and IsRenderer: false.
+        let legacyJson = """
+        {
+            "count": 4,
+            "speakers": [
+                {"Name": "Move 2", "IP": "192.168.4.120", "RinconID": "RINCON_M", "ModelName": "Sonos Move 2", "ModelNumber": "S44", "IsRenderer": false},
+                {"Name": "Office", "IP": "192.168.4.99", "RinconID": "RINCON_O", "ModelName": "Sonos Play:1", "ModelNumber": "S1", "IsRenderer": false},
+                {"Name": "TV Room", "IP": "192.168.4.100", "RinconID": "RINCON_T", "ModelName": "Sonos Arc", "ModelNumber": "S19", "IsRenderer": false},
+                {"Name": "Bridge", "IP": "192.168.4.10", "RinconID": "RINCON_B", "ModelName": "Sonos Bridge", "ModelNumber": "ZB100", "IsRenderer": false}
+            ]
+        }
+        """
+        let res = try JSONDecoder().decode(ListSpeakersResult.self, from: Data(legacyJson.utf8))
+        let seeds = SonosCoordinator.prioritizeSeedSpeakers(speakers: res.speakers, activeCoordinatorIP: nil)
+        XCTAssertEqual(seeds, ["192.168.4.99", "192.168.4.100", "192.168.4.120"], "Legacy speakers must remain valid seeds while ZB100 Bridge is still excluded")
+    }
+
     func testServerCapabilitiesLocalDynamicGrouping() {
         let controlSchema = """
         {

@@ -39,6 +39,26 @@ public struct SonosDevice: Codable, Identifiable, Hashable, Sendable {
         case generation = "Generation"
         case isRenderer = "IsRenderer"
     }
+
+    /// True if this device supports audio playback rendering (excludes Bridge, Boost, Dock, Control).
+    /// Handles legacy `sonos_cache.json` entries where missing `IsRenderer` unmarshals as Go zero-value `false` with empty `Generation`.
+    public var isAudioRenderer: Bool {
+        let nonRendererModels: Set<String> = ["ZB100", "BR100", "CR100", "CR200", "WD100"]
+        if let num = modelNumber?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+           nonRendererModels.contains(num) {
+            return false
+        }
+        let lowerModel = (modelName ?? "").lowercased()
+        if lowerModel.contains("bridge") || lowerModel.contains("boost") || lowerModel.contains("dock") {
+            return false
+        }
+        if isRenderer == false,
+           let gen = generation?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !gen.isEmpty {
+            return false
+        }
+        return true
+    }
 }
 
 public struct ListSpeakersResult: Codable, Sendable {
