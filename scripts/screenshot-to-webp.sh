@@ -3,12 +3,12 @@
 # Converts a macOS retina screenshot PNG to an optimized WebP image with optional coordinate-based blur.
 # Usage: ./scripts/screenshot-to-webp.sh <input.png> <output-base-name> [x1:y1:x2:y2]
 
-set -e
+set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INPUT="$1"
-OUTPUT_NAME="$2"
-BLUR_BOX="$3"
+INPUT="${1:-}"
+OUTPUT_NAME="${2:-}"
+BLUR_BOX="${3:-}"
 
 if [ -z "$INPUT" ] || [ -z "$OUTPUT_NAME" ]; then
     echo "Usage: $0 <input.png> <output-base-name> [x1:y1:x2:y2]"
@@ -20,21 +20,33 @@ DEST_DIR="$DIR/docs/src/assets/screenshots"
 mkdir -p "$DEST_DIR"
 OUTPUT_WEBP="$DEST_DIR/${OUTPUT_NAME}.webp"
 
-TEMP_PNG="/tmp/${OUTPUT_NAME}_processed.png"
+TEMP_PNG=""
+cleanup() {
+    if [ -n "$TEMP_PNG" ] && [ -f "$TEMP_PNG" ]; then
+        rm -f "$TEMP_PNG"
+    fi
+}
+trap cleanup EXIT
 
 if [ -n "$BLUR_BOX" ]; then
     echo "🔍 Applying Gaussian blur to region $BLUR_BOX..."
-    python3 -c "
+    TEMP_PNG="$(mktemp -t "sonosflow_${OUTPUT_NAME}_XXXXXX.png")"
+    python3 - "$INPUT" "$BLUR_BOX" "$TEMP_PNG" <<'PY'
 from PIL import Image, ImageFilter
 import sys
 
-im = Image.open('$INPUT')
-box = tuple(map(int, '$BLUR_BOX'.split(':')))
+input_path, box_arg, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
+parts = box_arg.split(":")
+if len(parts) != 4:
+    raise SystemExit("BLUR_BOX must be x1:y1:x2:y2")
+box = tuple(int(p) for p in parts)
+
+im = Image.open(input_path)
 region = im.crop(box)
 blurred = region.filter(ImageFilter.GaussianBlur(radius=7))
 im.paste(blurred, box)
-im.save('$TEMP_PNG')
-"
+im.save(out_path)
+PY
     SOURCE_FOR_CWEBP="$TEMP_PNG"
 else
     SOURCE_FOR_CWEBP="$INPUT"
@@ -42,9 +54,5 @@ fi
 
 echo "📦 Converting to WebP: $OUTPUT_WEBP"
 cwebp -q 82 "$SOURCE_FOR_CWEBP" -o "$OUTPUT_WEBP"
-
-if [ -f "$TEMP_PNG" ]; then
-    rm -f "$TEMP_PNG"
-fi
 
 echo "✅ Saved: $OUTPUT_WEBP ($(ls -lh "$OUTPUT_WEBP" | awk '{print $5}'))"

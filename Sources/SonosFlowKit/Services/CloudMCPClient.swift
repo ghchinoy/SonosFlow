@@ -11,7 +11,8 @@ public actor CloudMCPClient {
     private let issuer: String
     private let mcpEndpoint: String
     private let redirectURI: String
-    private let tokenStorage: CloudTokenStorage
+    private let tokenStorage: any CloudTokenStore
+    private let urlSession: URLSession
 
     private var activeToken: CloudToken?
     private var requestIdCounter: Int = 0
@@ -22,12 +23,14 @@ public actor CloudMCPClient {
         issuer: String = defaultIssuer,
         mcpEndpoint: String = defaultMcpEndpoint,
         redirectURI: String = defaultRedirectURI,
-        tokenStorage: CloudTokenStorage = .shared
+        tokenStorage: any CloudTokenStore = CloudTokenStorage.shared,
+        urlSession: URLSession = .shared
     ) {
         self.issuer = issuer
         self.mcpEndpoint = mcpEndpoint
         self.redirectURI = redirectURI
         self.tokenStorage = tokenStorage
+        self.urlSession = urlSession
     }
 
     public func hasValidToken() -> Bool {
@@ -52,8 +55,11 @@ public actor CloudMCPClient {
 
     public func authenticate(parentWindow: NSWindow? = nil) async throws -> CloudToken {
         // 1. Discover OAuth Configuration
-        let discoURL = URL(string: "\(issuer)/.well-known/oauth-authorization-server")!
-        let (discoData, _) = try await URLSession.shared.data(from: discoURL)
+        guard let discoURL = URL(string: "\(issuer)/.well-known/oauth-authorization-server"),
+              discoURL.scheme?.lowercased() == "https" else {
+            throw NSError(domain: "CloudMCPClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid OAuth issuer URL."])
+        }
+        let (discoData, _) = try await urlSession.data(from: discoURL)
         guard let discoJSON = try JSONSerialization.jsonObject(with: discoData) as? [String: Any] else {
             throw NSError(domain: "CloudMCPClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to parse Sonos authorization discovery JSON."])
         }
@@ -61,6 +67,12 @@ public actor CloudMCPClient {
         let registerEndpoint = discoJSON["registration_endpoint"] as? String ?? "\(issuer)/mcp-oauth/register"
         let authEndpoint = discoJSON["authorization_endpoint"] as? String ?? "\(issuer)/mcp-oauth/authorize"
         let tokenEndpoint = discoJSON["token_endpoint"] as? String ?? "\(issuer)/mcp-oauth/token"
+
+        for endpoint in [registerEndpoint, authEndpoint, tokenEndpoint] {
+            guard Self.isSecureHTTPSURL(endpoint) else {
+                throw NSError(domain: "CloudMCPClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "Discovered OAuth endpoint must use HTTPS: \(endpoint)"])
+            }
+        }
 
         // 2. Dynamic Client Registration (RFC 7591)
         var clientID: String = ""
@@ -77,7 +89,7 @@ public actor CloudMCPClient {
                 "redirect_uris": [redirectURI]
             ]
             regReq.httpBody = try JSONSerialization.data(withJSONObject: regPayload)
-            let (regData, regResp) = try await URLSession.shared.data(for: regReq)
+            let (regData, regResp) = try await urlSession.data(for: regReq)
             guard let httpReg = regResp as? HTTPURLResponse, (httpReg.statusCode == 200 || httpReg.statusCode == 201),
                   let regJSON = try JSONSerialization.jsonObject(with: regData) as? [String: Any],
                   let newID = regJSON["client_id"] as? String else {
@@ -86,9 +98,10 @@ public actor CloudMCPClient {
             clientID = newID
         }
 
-        // 3. PKCE Generation & Loopback Listener
+        // 3. PKCE Generation & Loopback Listener (with CSRF state verification)
         let verifier = generateCodeVerifier()
         let challenge = generateCodeChallenge(for: verifier)
+        let expectedState = UUID().uuidString
 
         var authURLComponents = URLComponents(string: authEndpoint)!
         authURLComponents.queryItems = [
@@ -98,35 +111,36 @@ public actor CloudMCPClient {
             URLQueryItem(name: "scope", value: "playback-control-all partner-content:read"),
             URLQueryItem(name: "code_challenge", value: challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
-            URLQueryItem(name: "state", value: UUID().uuidString)
+            URLQueryItem(name: "state", value: expectedState)
         ]
 
         guard let authURL = authURLComponents.url else {
             throw NSError(domain: "CloudMCPClient", code: -3, userInfo: [NSLocalizedDescriptionKey: "Malformed authorization URL."])
         }
 
-        // Launch browser and wait on loopback port 8080
+        // Launch browser and wait on loopback port 8080 (120s timeout)
         _ = await MainActor.run {
             NSWorkspace.shared.open(authURL)
         }
 
-        let code = try await LoopbackOAuthListener.listen(onPort: 8080)
+        let code = try await LoopbackOAuthListener.listen(onPort: 8080, expectedState: expectedState, timeoutSeconds: 120)
 
         // 4. Token Exchange
         var tokenReq = URLRequest(url: URL(string: tokenEndpoint)!)
         tokenReq.httpMethod = "POST"
         tokenReq.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-        let formParts: [String] = [
-            "grant_type=authorization_code",
-            "client_id=\(clientID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")",
-            "code=\(code.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")",
-            "redirect_uri=\(redirectURI.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")",
-            "code_verifier=\(verifier.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        var bodyComponents = URLComponents()
+        bodyComponents.queryItems = [
+            URLQueryItem(name: "grant_type", value: "authorization_code"),
+            URLQueryItem(name: "client_id", value: clientID),
+            URLQueryItem(name: "code", value: code),
+            URLQueryItem(name: "redirect_uri", value: redirectURI),
+            URLQueryItem(name: "code_verifier", value: verifier)
         ]
-        tokenReq.httpBody = formParts.joined(separator: "&").data(using: .utf8)
+        tokenReq.httpBody = bodyComponents.percentEncodedQuery?.data(using: .utf8)
 
-        let (tokenData, tokenResp) = try await URLSession.shared.data(for: tokenReq)
+        let (tokenData, tokenResp) = try await urlSession.data(for: tokenReq)
         guard let httpToken = tokenResp as? HTTPURLResponse, httpToken.statusCode == 200,
               let tokenJSON = try JSONSerialization.jsonObject(with: tokenData) as? [String: Any],
               let newAccessToken = tokenJSON["access_token"] as? String else {
@@ -159,18 +173,22 @@ public actor CloudMCPClient {
         // Try refresh if refresh_token available
         if let stored = tokenStorage.loadToken(), let refreshToken = stored.refreshToken {
             let tokenEndpoint = "\(issuer)/mcp-oauth/token"
-            var tokenReq = URLRequest(url: URL(string: tokenEndpoint)!)
+            guard Self.isSecureHTTPSURL(tokenEndpoint), let tokenURL = URL(string: tokenEndpoint) else {
+                throw NSError(domain: "CloudMCPClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid token endpoint."])
+            }
+            var tokenReq = URLRequest(url: tokenURL)
             tokenReq.httpMethod = "POST"
             tokenReq.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-            let formParts: [String] = [
-                "grant_type=refresh_token",
-                "client_id=\(stored.clientID.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")",
-                "refresh_token=\(refreshToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+            var bodyComponents = URLComponents()
+            bodyComponents.queryItems = [
+                URLQueryItem(name: "grant_type", value: "refresh_token"),
+                URLQueryItem(name: "client_id", value: stored.clientID),
+                URLQueryItem(name: "refresh_token", value: refreshToken)
             ]
-            tokenReq.httpBody = formParts.joined(separator: "&").data(using: .utf8)
+            tokenReq.httpBody = bodyComponents.percentEncodedQuery?.data(using: .utf8)
 
-            let (tokenData, tokenResp) = try await URLSession.shared.data(for: tokenReq)
+            let (tokenData, tokenResp) = try await urlSession.data(for: tokenReq)
             if let httpToken = tokenResp as? HTTPURLResponse, httpToken.statusCode == 200,
                let tokenJSON = try JSONSerialization.jsonObject(with: tokenData) as? [String: Any],
                let newAccessToken = tokenJSON["access_token"] as? String {
@@ -219,7 +237,7 @@ public actor CloudMCPClient {
         ]
         initReq.httpBody = try JSONSerialization.data(withJSONObject: initPayload)
 
-        let (initData, initResp) = try await URLSession.shared.data(for: initReq)
+        let (initData, initResp) = try await urlSession.data(for: initReq)
         let initJSON = try Self.parseMCPResponse(data: initData, response: initResp)
 
         var sInfo = MCPServerInfo(name: "Sonos 27mcp", version: "1.0")
@@ -243,7 +261,7 @@ public actor CloudMCPClient {
             "params": [:] as [String: Any]
         ]
         notifReq.httpBody = try JSONSerialization.data(withJSONObject: notifPayload)
-        _ = try? await URLSession.shared.data(for: notifReq)
+        _ = try? await urlSession.data(for: notifReq)
 
         // 3. Query tools/list
         requestIdCounter += 1
@@ -261,7 +279,7 @@ public actor CloudMCPClient {
         ]
         listReq.httpBody = try JSONSerialization.data(withJSONObject: listPayload)
 
-        let (listData, listResp) = try await URLSession.shared.data(for: listReq)
+        let (listData, listResp) = try await urlSession.data(for: listReq)
         let listJSON = try Self.parseMCPResponse(data: listData, response: listResp)
 
         var parsedTools: [MCPTool] = []
@@ -307,7 +325,7 @@ public actor CloudMCPClient {
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
-        let (data, resp) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await urlSession.data(for: req)
         let json = try Self.parseMCPResponse(data: data, response: resp)
 
         if let err = json["error"] as? [String: Any] {
@@ -335,7 +353,51 @@ public actor CloudMCPClient {
         return json
     }
 
-    // MARK: - Helper Decoders
+    // MARK: - Security & Helper Decoders
+
+    public static func isSecureHTTPSURL(_ raw: String) -> Bool {
+        guard let url = URL(string: raw),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "https",
+              let host = url.host,
+              !host.isEmpty else {
+            return false
+        }
+        return true
+    }
+
+    /// Parses an OAuth callback HTTP request line (`GET /callback?code=...&state=... HTTP/1.1`)
+    /// and validates the CSRF `state` parameter.
+    public static func parseOAuthCallback(request: String, expectedState: String) throws -> String {
+        guard let firstLine = request.components(separatedBy: "\r\n").first else {
+            throw NSError(domain: "CloudMCPClient", code: -10, userInfo: [NSLocalizedDescriptionKey: "Malformed OAuth callback request."])
+        }
+        let parts = firstLine.split(separator: " ", omittingEmptySubsequences: true)
+        guard parts.count >= 2 else {
+            throw NSError(domain: "CloudMCPClient", code: -10, userInfo: [NSLocalizedDescriptionKey: "Missing request target in OAuth callback."])
+        }
+        let target = String(parts[1])
+        guard let comps = URLComponents(string: "http://localhost\(target)") else {
+            throw NSError(domain: "CloudMCPClient", code: -10, userInfo: [NSLocalizedDescriptionKey: "Invalid OAuth callback URL."])
+        }
+
+        let items = comps.queryItems ?? []
+        if let oauthErr = items.first(where: { $0.name == "error" })?.value {
+            let desc = items.first(where: { $0.name == "error_description" })?.value ?? oauthErr
+            throw NSError(domain: "CloudMCPClient", code: -11, userInfo: [NSLocalizedDescriptionKey: "OAuth denied: \(desc)"])
+        }
+
+        guard let returnedState = items.first(where: { $0.name == "state" })?.value,
+              returnedState == expectedState else {
+            throw NSError(domain: "CloudMCPClient", code: -12, userInfo: [NSLocalizedDescriptionKey: "OAuth state mismatch (possible CSRF attempt)."])
+        }
+
+        guard let code = items.first(where: { $0.name == "code" })?.value, !code.isEmpty else {
+            throw NSError(domain: "CloudMCPClient", code: -13, userInfo: [NSLocalizedDescriptionKey: "Missing authorization code in OAuth callback."])
+        }
+
+        return code
+    }
 
     static func parseMCPResponse(data: Data, response: URLResponse?) throws -> [String: Any] {
         if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
@@ -395,31 +457,49 @@ public actor CloudMCPClient {
 private actor LoopbackOAuthListener {
     private var listener: NWListener?
     private var codeContinuation: CheckedContinuation<String, Error>?
+    private var timeoutTask: Task<Void, Never>?
 
-    static func listen(onPort port: UInt16) async throws -> String {
+    static func listen(onPort port: UInt16, expectedState: String, timeoutSeconds: TimeInterval = 120) async throws -> String {
         let loopback = LoopbackOAuthListener()
-        return try await loopback.start(port: port)
+        return try await loopback.start(port: port, expectedState: expectedState, timeoutSeconds: timeoutSeconds)
     }
 
-    func start(port: UInt16) async throws -> String {
-        let listener = try NWListener(using: .tcp, on: NWEndpoint.Port(rawValue: port)!)
+    func start(port: UInt16, expectedState: String, timeoutSeconds: TimeInterval) async throws -> String {
+        let params = NWParameters.tcp
+        params.requiredLocalEndpoint = NWEndpoint.hostPort(
+            host: NWEndpoint.Host.ipv4(.loopback),
+            port: NWEndpoint.Port(rawValue: port)!
+        )
+        let listener = try NWListener(using: params)
         self.listener = listener
 
         return try await withCheckedThrowingContinuation { continuation in
             self.codeContinuation = continuation
 
+            self.timeoutTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
+                await self?.fail(with: NSError(domain: "CloudMCPClient", code: 408, userInfo: [NSLocalizedDescriptionKey: "Sonos sign-in timed out after \(Int(timeoutSeconds))s."]))
+            }
+
             listener.newConnectionHandler = { [weak self] connection in
                 connection.start(queue: .global())
-                connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { data, _, _, _ in
+                connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { data, _, _, _ in
                     guard let data = data, let req = String(data: data, encoding: .utf8) else {
+                        connection.cancel()
                         return
                     }
 
-                    if let firstLine = req.components(separatedBy: "\r\n").first,
-                       let range = firstLine.range(of: "code=") {
-                        let afterCode = String(firstLine[range.upperBound...])
-                        let code = afterCode.components(separatedBy: CharacterSet(charactersIn: " &")).first ?? ""
+                    // Ignore browser pre-requests like /favicon.ico
+                    if req.hasPrefix("GET /favicon.ico") {
+                        let notFound = "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n"
+                        connection.send(content: notFound.data(using: .utf8), completion: .contentProcessed({ _ in
+                            connection.cancel()
+                        }))
+                        return
+                    }
 
+                    do {
+                        let code = try CloudMCPClient.parseOAuthCallback(request: req, expectedState: expectedState)
                         let html = """
                         HTTP/1.1 200 OK\r
                         Content-Type: text/html; charset=utf-8\r
@@ -437,17 +517,39 @@ private actor LoopbackOAuthListener {
                         connection.send(content: html.data(using: .utf8), completion: .contentProcessed({ _ in
                             connection.cancel()
                         }))
-
                         Task { [weak self] in
                             await self?.resumeWithCode(code)
+                        }
+                    } catch {
+                        let html = """
+                        HTTP/1.1 400 Bad Request\r
+                        Content-Type: text/html; charset=utf-8\r
+                        Connection: close\r
+                        \r
+                        <!DOCTYPE html>
+                        <html>
+                        <head><title>SonosFlow Authorization Failed</title></head>
+                        <body style="font-family: -apple-system, sans-serif; text-align: center; padding: 50px;">
+                            <h2 style="color: #c62828;">SonosFlow: Authorization Failed</h2>
+                            <p>Please return to SonosFlow and try signing in again.</p>
+                        </body>
+                        </html>
+                        """
+                        connection.send(content: html.data(using: .utf8), completion: .contentProcessed({ _ in
+                            connection.cancel()
+                        }))
+                        Task { [weak self] in
+                            await self?.fail(with: error)
                         }
                     }
                 }
             }
 
-            listener.stateUpdateHandler = { state in
+            listener.stateUpdateHandler = { [weak self] state in
                 if case .failed(let err) = state {
-                    continuation.resume(throwing: err)
+                    Task { [weak self] in
+                        await self?.fail(with: err)
+                    }
                 }
             }
 
@@ -456,9 +558,20 @@ private actor LoopbackOAuthListener {
     }
 
     private func resumeWithCode(_ code: String) {
+        timeoutTask?.cancel()
+        timeoutTask = nil
         listener?.cancel()
         listener = nil
         codeContinuation?.resume(returning: code)
+        codeContinuation = nil
+    }
+
+    private func fail(with error: Error) {
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        listener?.cancel()
+        listener = nil
+        codeContinuation?.resume(throwing: error)
         codeContinuation = nil
     }
 }

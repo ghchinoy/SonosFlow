@@ -62,8 +62,15 @@ public actor MCPClient {
         p.executableURL = URL(fileURLWithPath: binaryPath)
         p.arguments = []
 
-        // Inherit environment with PATH
-        p.environment = ProcessInfo.processInfo.environment
+        // Inherit only safe baseline environment variables
+        let currentEnv = ProcessInfo.processInfo.environment
+        var safeEnv: [String: String] = [:]
+        for key in ["PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "XDG_CONFIG_HOME"] {
+            if let val = currentEnv[key] {
+                safeEnv[key] = val
+            }
+        }
+        p.environment = safeEnv
 
         let sin = Pipe()
         let sout = Pipe()
@@ -153,8 +160,15 @@ public actor MCPClient {
         pendingRequests.removeAll()
     }
 
+    private static let maxStdoutBufferBytes = 16 * 1024 * 1024 // 16 MB safety cap
+
     private func handleStdoutData(_ data: Data) {
         buffer.append(data)
+        if buffer.count > Self.maxStdoutBufferBytes && buffer.range(of: Data([0x0A])) == nil {
+            AppLogger.shared.error("MCPClient stdout buffer exceeded 16 MB without newline; dropping oversized line.", category: "MCP")
+            buffer.removeAll(keepingCapacity: false)
+            return
+        }
         var linesToProcess: [String] = []
 
         while let newlineRange = buffer.range(of: Data([0x0A])) {

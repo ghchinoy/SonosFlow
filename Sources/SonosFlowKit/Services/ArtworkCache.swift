@@ -24,6 +24,12 @@ public actor ArtworkCache {
         try? FileManager.default.createDirectory(at: artworkDir, withIntermediateDirectories: true)
     }
 
+    /// Validates that an artwork URL uses an allowed network scheme (`http` or `https`).
+    public static func isAllowedArtworkURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+
     /// Computes deterministic file URL on disk for a given artwork URL using SHA-256.
     public func diskFileURL(for url: URL) -> URL {
         let hash = SHA256.hash(data: Data(url.absoluteString.utf8)).map { String(format: "%02x", $0) }.joined()
@@ -32,6 +38,7 @@ public actor ArtworkCache {
 
     /// Returns the physical local file URL on disk if cached, downloading it first if needed.
     public func cachedFileURL(for url: URL) async -> URL? {
+        guard Self.isAllowedArtworkURL(url) else { return nil }
         let file = diskFileURL(for: url)
         if fileManager.fileExists(atPath: file.path) {
             return file
@@ -46,6 +53,8 @@ public actor ArtworkCache {
 
     /// Retrieves image from memory cache, disk cache, or downloads it.
     public func image(for url: URL) async -> NSImage? {
+        guard Self.isAllowedArtworkURL(url) else { return nil }
+
         // 1. Memory Cache
         if let cached = memoryCache.object(forKey: url as NSURL) {
             return cached
@@ -57,7 +66,6 @@ public actor ArtworkCache {
            let data = try? Data(contentsOf: file),
            let img = NSImage(data: data) {
             memoryCache.setObject(img, forKey: url as NSURL)
-            NSWorkspace.shared.setIcon(img, forFile: file.path, options: [])
             return img
         }
 
@@ -76,10 +84,12 @@ public actor ArtworkCache {
                     return nil
                 }
 
-                // Write to disk cache atomically and apply custom file icon
+                // Write to disk cache atomically and apply custom file icon once on MainActor
                 try? fileManager.createDirectory(at: self.diskCacheDirectory, withIntermediateDirectories: true)
                 try? data.write(to: file, options: .atomic)
-                NSWorkspace.shared.setIcon(image, forFile: file.path, options: [])
+                _ = await MainActor.run {
+                    NSWorkspace.shared.setIcon(image, forFile: file.path, options: [])
+                }
 
                 return image
             } catch {
@@ -124,9 +134,11 @@ public actor ArtworkCache {
     }
 
     /// Reveals the disk artwork cache folder in macOS Finder.
-    public func revealInFinder() {
-        if fileManager.fileExists(atPath: diskCacheDirectory.path) {
-            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: diskCacheDirectory.path)
+    public func revealInFinder() async {
+        let dir = diskCacheDirectory
+        guard fileManager.fileExists(atPath: dir.path) else { return }
+        await MainActor.run {
+            _ = NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: dir.path)
         }
     }
 }

@@ -320,15 +320,10 @@ public struct QueueListView: View {
                     HStack(spacing: 16) {
                         // Artwork
                         Group {
-                            if let artURI = next.albumArtURI, let url = URL(string: artURI) {
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image.resizable().aspectRatio(contentMode: .fill)
-                                    default:
-                                        Color.secondary.opacity(0.15)
-                                    }
-                                }
+                            if let artURI = next.albumArtURI,
+                               let url = URL(string: artURI),
+                               ArtworkCache.isAllowedArtworkURL(url) {
+                                ArtworkImageView(url: url, size: 72, cornerRadius: 8)
                             } else {
                                 ZStack {
                                     Color.secondary.opacity(0.15)
@@ -336,10 +331,10 @@ public struct QueueListView: View {
                                         .font(.system(size: 24))
                                         .foregroundColor(.secondary)
                                 }
+                                .frame(width: 72, height: 72)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                         }
-                        .frame(width: 72, height: 72)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
                         .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
 
                         VStack(alignment: .leading, spacing: 4) {
