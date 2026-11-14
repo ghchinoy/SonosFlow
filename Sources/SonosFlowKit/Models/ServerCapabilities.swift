@@ -95,7 +95,9 @@ public struct ServerCapabilities: Equatable, Sendable {
             self.supportsAudioStreams = toolNames.contains("sonos_play_stream")
             self.supportsFavorites = toolNames.contains("sonos_list_favorites") && toolNames.contains("sonos_play_favorite")
             self.supportsVolumeControl = toolNames.contains("sonos_set_volume")
-            self.supportsDynamicGrouping = toolNames.contains("sonos_group")
+            let controlTool = toolsByName["sonos_control"]
+            let controlSupportsJoin = controlTool?.propertyMentions("action", keyword: "join") == true
+            self.supportsDynamicGrouping = toolNames.contains("sonos_group") || controlSupportsJoin
             self.supportsHomeTheaterEQ = toolNames.contains("sonos_set_eq")
 
             // Introspect sonos_queue_edit schema for control-bjv (property presence or action description/enum)

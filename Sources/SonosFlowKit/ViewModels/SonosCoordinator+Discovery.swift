@@ -2,8 +2,10 @@ import Foundation
 
 extension SonosCoordinator {
     /// Orders discovered speakers prioritizing active coordinator first, stationary/mains speakers next, and battery portables (Move, Roam) last.
+    /// Non-renderer bridge/boost devices (`isRenderer == false`) are excluded.
     public nonisolated static func prioritizeSeedSpeakers(speakers: [SonosDevice], activeCoordinatorIP: String?) -> [String] {
         var orderedIPs: [String] = []
+        let renderers = speakers.filter { $0.isRenderer != false }
 
         // 1. If we have an active coordinator IP, try it first
         if let active = activeCoordinatorIP, !active.isEmpty {
@@ -11,7 +13,7 @@ extension SonosCoordinator {
         }
 
         // 2. Stationary speakers (Arc, Play:1, Play:3, Port, Beam, One, Five, etc.)
-        let stationary = speakers.filter { spk in
+        let stationary = renderers.filter { spk in
             let model = (spk.modelName ?? "").lowercased()
             let isPortable = model.contains("move") || model.contains("roam")
             return !isPortable && !orderedIPs.contains(spk.ip)
@@ -21,7 +23,7 @@ extension SonosCoordinator {
         }
 
         // 3. Portable/battery speakers (Move, Roam) as last-resort fallback
-        let portables = speakers.filter { spk in
+        let portables = renderers.filter { spk in
             let model = (spk.modelName ?? "").lowercased()
             let isPortable = model.contains("move") || model.contains("roam")
             return isPortable && !orderedIPs.contains(spk.ip)

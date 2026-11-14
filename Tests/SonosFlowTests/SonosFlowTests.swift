@@ -952,6 +952,210 @@ final class SonosFlowTests: XCTestCase {
         XCTAssertEqual(favs[1].id, "3")
         XCTAssertEqual(favs[1].title, "Liked Music")
     }
+
+    // MARK: - Security, Storage & Upstream Sync Tests
+
+    func testInMemoryCloudTokenStoreIsolation() {
+        let store = InMemoryCloudTokenStore()
+        XCTAssertNil(store.loadToken())
+
+        let validToken = CloudToken(
+            accessToken: "secret-access",
+            refreshToken: "secret-refresh",
+            expiresAt: Date().addingTimeInterval(3600),
+            clientID: "client-123"
+        )
+        store.saveToken(validToken)
+        XCTAssertEqual(store.loadToken(), validToken)
+        XCTAssertTrue(validToken.isValid)
+        XCTAssertNil(UserDefaults.standard.data(forKey: "sonosflow_cloud_token_fallback"))
+
+        store.clearToken()
+        XCTAssertNil(store.loadToken())
+
+        let expired = CloudToken(
+            accessToken: "old",
+            refreshToken: nil,
+            expiresAt: Date().addingTimeInterval(30), // within 60s buffer
+            clientID: "client-123"
+        )
+        XCTAssertFalse(expired.isValid)
+    }
+
+    func testCloudTokenStoragePurgesLegacyUserDefaults() {
+        UserDefaults.standard.set(Data("legacy".utf8), forKey: "sonosflow_cloud_token_fallback")
+        _ = CloudTokenStorage()
+        XCTAssertNil(UserDefaults.standard.data(forKey: "sonosflow_cloud_token_fallback"))
+    }
+
+    func testOAuthCallbackValidation() throws {
+        let expectedState = "state-abc-123"
+
+        let validReq = "GET /callback?code=authcode999&state=state-abc-123 HTTP/1.1\r\nHost: localhost:8080\r\n\r\n"
+        let code = try CloudMCPClient.parseOAuthCallback(request: validReq, expectedState: expectedState)
+        XCTAssertEqual(code, "authcode999")
+
+        let csrfReq = "GET /callback?code=authcode999&state=wrong-state HTTP/1.1\r\nHost: localhost:8080\r\n\r\n"
+        XCTAssertThrowsError(try CloudMCPClient.parseOAuthCallback(request: csrfReq, expectedState: expectedState))
+
+        let deniedReq = "GET /callback?error=access_denied&error_description=User%20cancelled HTTP/1.1\r\n\r\n"
+        XCTAssertThrowsError(try CloudMCPClient.parseOAuthCallback(request: deniedReq, expectedState: expectedState))
+
+        XCTAssertTrue(CloudMCPClient.isSecureHTTPSURL("https://mcp.ws.sonos.com/mcp-oauth/token"))
+        XCTAssertFalse(CloudMCPClient.isSecureHTTPSURL("http://mcp.ws.sonos.com/mcp-oauth/token"))
+        XCTAssertFalse(CloudMCPClient.isSecureHTTPSURL("file:///etc/passwd"))
+    }
+
+    func testArtworkCacheURLSchemeValidation() {
+        XCTAssertTrue(ArtworkCache.isAllowedArtworkURL(URL(string: "https://example.com/art.jpg")!))
+        XCTAssertTrue(ArtworkCache.isAllowedArtworkURL(URL(string: "http://192.168.4.99:1400/getaa?s=1")!))
+        XCTAssertFalse(ArtworkCache.isAllowedArtworkURL(URL(string: "file:///etc/passwd")!))
+        XCTAssertFalse(ArtworkCache.isAllowedArtworkURL(URL(string: "javascript:alert(1)")!))
+        XCTAssertFalse(ArtworkCache.isAllowedArtworkURL(URL(string: "ftp://example.com/art.jpg")!))
+    }
+
+    func testSonosDeviceGenerationAndRendererDecoding() throws {
+        let json = """
+        {
+            "count": 3,
+            "speakers": [
+                {
+                    "Name": "Sonos Bridge",
+                    "IP": "192.168.4.10",
+                    "RinconID": "RINCON_BRIDGE",
+                    "ModelName": "Sonos Bridge",
+                    "ModelNumber": "ZB100",
+                    "Generation": "S1",
+                    "IsRenderer": false
+                },
+                {
+                    "Name": "Move 2",
+                    "IP": "192.168.4.120",
+                    "RinconID": "RINCON_MOVE2",
+                    "ModelName": "Sonos Move 2",
+                    "ModelNumber": "S44",
+                    "Generation": "S2",
+                    "IsRenderer": true
+                },
+                {
+                    "Name": "Office",
+                    "IP": "192.168.4.99",
+                    "RinconID": "RINCON_OFFICE",
+                    "ModelName": "Sonos Play:1",
+                    "ModelNumber": "S1",
+                    "Generation": "S2",
+                    "IsRenderer": true
+                }
+            ]
+        }
+        """
+        let res = try JSONDecoder().decode(ListSpeakersResult.self, from: Data(json.utf8))
+        XCTAssertEqual(res.speakers.count, 3)
+        XCTAssertEqual(res.speakers[0].isRenderer, false)
+        XCTAssertEqual(res.speakers[0].generation, "S1")
+        XCTAssertEqual(res.speakers[1].isRenderer, true)
+
+        let seeds = SonosCoordinator.prioritizeSeedSpeakers(speakers: res.speakers, activeCoordinatorIP: nil)
+        XCTAssertEqual(seeds, ["192.168.4.99", "192.168.4.120"], "Non-renderer Bridge must be excluded and stationary prioritized")
+    }
+
+    func testServerCapabilitiesLocalDynamicGrouping() {
+        let controlSchema = """
+        {
+            "type": "object",
+            "properties": {
+                "ip": { "type": "string" },
+                "action": {
+                    "type": "string",
+                    "description": "Playback or grouping action: 'play', 'pause', 'stop', 'next', 'previous', 'seek_track', 'seek_time', 'join', 'leave', 'unjoin' (required)"
+                }
+            }
+        }
+        """
+        let caps = ServerCapabilities(engine: .local, tools: [
+            MCPTool(name: "sonos_control", inputSchemaJSON: controlSchema)
+        ])
+        XCTAssertTrue(caps.supportsDynamicGrouping)
+    }
+
+    func testSonosCloudBackendPlayerVolumeParsing() {
+        let backend = SonosCloudBackend()
+        let activeVol: [String: Any] = [
+            "content": [["type": "text", "text": "{\n  \"volume\": 22,\n  \"muted\": false\n}"]]
+        ]
+        XCTAssertEqual(backend.parsePlayerVolumeResponse(activeVol), 22)
+
+        let mutedVol: [String: Any] = [
+            "content": [["type": "text", "text": "{\n  \"volume\": 22,\n  \"muted\": true\n}"]]
+        ]
+        XCTAssertEqual(backend.parsePlayerVolumeResponse(mutedVol), 0)
+    }
+
+    func testSonosCloudBackendBondedDevicesTopologyParsing() throws {
+        let rawJson = """
+        [
+          {
+            "name": "Mountain House",
+            "householdId": "HH_1",
+            "groups": [
+              {
+                "groupId": "RINCON_OFFICE:1",
+                "playbackState": "PLAYBACK_STATE_IDLE",
+                "players": [
+                  {
+                    "name": "Office",
+                    "playerId": "RINCON_OFFICE_L",
+                    "capabilities": ["PLAYBACK"],
+                    "devices": [
+                      { "modelDisplayName": "Play:1" },
+                      { "modelDisplayName": "Play:1" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+        """
+        let mcpWrapper: [String: Any] = ["content": [["type": "text", "text": rawJson]]]
+        let backend = SonosCloudBackend()
+        let result = try backend.parseTopologyResponse(mcpWrapper)
+        XCTAssertEqual(result.groups.count, 1)
+        XCTAssertTrue(result.groups[0].isPair)
+    }
+
+    @MainActor
+    func testCoordinatorCloudMemberVolumeRouting() async {
+        let mock = MockSonosBackend(engine: .cloud)
+        mock.playerVolumesByID["P_LIVING"] = 35
+        mock.playerVolumesByID["P_KITCHEN"] = 18
+
+        let defaults = UserDefaults(suiteName: "CloudMemberVolTest")!
+        defaults.removePersistentDomain(forName: "CloudMemberVolTest")
+        let settings = AppSettings(defaults: defaults)
+        let coordinator = SonosCoordinator(backend: mock, settings: settings)
+
+        let group = TopologyGroup(
+            id: "G_MULTI",
+            coordinatorUUID: "P_LIVING",
+            isPair: false,
+            members: [
+                TopologyMember(uuid: "P_LIVING", roomName: "Living Room", ip: nil, isCoordinator: true),
+                TopologyMember(uuid: "P_KITCHEN", roomName: "Kitchen", ip: nil, isCoordinator: false)
+            ],
+            householdId: "HH_1"
+        )
+        coordinator.selectedGroup = group
+
+        await coordinator.refreshMemberVolumes(for: group)
+        XCTAssertEqual(coordinator.memberVolumes["P_LIVING"], 35.0)
+        XCTAssertEqual(coordinator.memberVolumes["P_KITCHEN"], 18.0)
+
+        coordinator.setMemberVolume(member: group.members[1], in: group, volume: 42.0)
+        XCTAssertEqual(coordinator.memberVolumes["P_KITCHEN"], 42.0)
+        try? await Task.sleep(nanoseconds: 250_000_000)
+        XCTAssertEqual(mock.lastSetPlayerVolume?["P_KITCHEN"], 42)
+    }
 }
 
 // MARK: - Mock Backend Definition
@@ -984,11 +1188,25 @@ class MockSonosBackend: SonosBackend, @unchecked Sendable {
     func previous(target: SonosTarget) async throws {}
     func seekTrack(target: SonosTarget, track: Int) async throws {}
     func seekTime(target: SonosTarget, seconds: Int) async throws {}
+    var playerVolumesByID: [String: Int] = [:]
+    var lastSetPlayerVolume: [String: Int]?
+
     func setVolume(target: SonosTarget, volume: Int) async throws {}
     func adjustVolume(target: SonosTarget, delta: Int) async throws {}
     func setMute(target: SonosTarget, muted: Bool) async throws {}
-    func getPlayerVolume(target: SonosTarget) async throws -> Int { 20 }
-    func setPlayerVolume(target: SonosTarget, volume: Int) async throws {}
+    func getPlayerVolume(target: SonosTarget) async throws -> Int {
+        if let pid = target.playerId, let v = playerVolumesByID[pid] {
+            return v
+        }
+        return 20
+    }
+    func setPlayerVolume(target: SonosTarget, volume: Int) async throws {
+        if let pid = target.playerId {
+            lastSetPlayerVolume = [pid: volume]
+        } else if let ip = target.localIP {
+            lastSetPlayerVolume = [ip: volume]
+        }
+    }
     func listFavorites(target: SonosTarget?) async throws -> [SonosFavorite] { favoritesToReturn }
     func playFavorite(target: SonosTarget, favoriteId: String) async throws {}
     func playStream(target: SonosTarget, url: String, title: String?) async throws {}
